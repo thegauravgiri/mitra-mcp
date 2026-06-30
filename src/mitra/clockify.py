@@ -95,3 +95,49 @@ class ClockifyClient:
             "end": end_time
         }
         return await self._request("PATCH", f"workspaces/{workspace_id}/user/{user_id}/time-entries", json_data=payload)
+
+    async def get_time_entry(self, workspace_id: str, time_entry_id: str) -> Dict[str, Any]:
+        """Retrieves a specific time entry by ID."""
+        return await self._request("GET", f"workspaces/{workspace_id}/time-entries/{time_entry_id}")
+
+    async def update_time_entry(
+        self,
+        workspace_id: str,
+        time_entry_id: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        description: Optional[str] = None,
+        project_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        billable: Optional[bool] = None
+    ) -> Dict[str, Any]:
+        """
+        Updates an existing time entry in a workspace.
+        Only the provided parameters will be updated; other fields will be preserved.
+        """
+        # Fetch the existing time entry first to ensure we don't overwrite/clear other fields.
+        existing = await self.get_time_entry(workspace_id, time_entry_id)
+
+        # Extract existing values
+        start = start_time if start_time is not None else existing.get("timeInterval", {}).get("start")
+        end = end_time if end_time is not None else existing.get("timeInterval", {}).get("end")
+        desc = description if description is not None else existing.get("description")
+        proj_id = project_id if project_id is not None else existing.get("projectId")
+        t_id = task_id if task_id is not None else existing.get("taskId")
+        is_billable = billable if billable is not None else existing.get("billable")
+
+        # Construct update payload
+        payload: Dict[str, Any] = {
+            "start": start,
+            "description": desc,
+            "billable": is_billable
+        }
+        if end:
+            payload["end"] = end
+        if proj_id:
+            payload["projectId"] = proj_id
+        if t_id:
+            payload["taskId"] = t_id
+
+        return await self._request("PUT", f"workspaces/{workspace_id}/time-entries/{time_entry_id}", json_data=payload)
+

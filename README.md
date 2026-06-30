@@ -1,12 +1,10 @@
 # Mitra MCP Server
 
-Mitra is an all-in-one Model Context Protocol (MCP) server that integrates Clockify with local development tracking. It allows developers and AI assistants to start timers on specific files, check git diffs, and log time directly to Clockify.
+Mitra is a Model Context Protocol (MCP) server that integrates with Clockify. It allows developers and local AI assistants to manage workspaces, projects, timers, and log time entries directly to Clockify.
 
 ## Features
 
-- **Clockify Integration**: View workspaces, projects, active timers, and create new time entries.
-- **Git Integration**: Fetch diffs, status, and history of repositories.
-- **Local Timers**: Start and stop time tracking on specific files or projects, storing state locally.
+- **Clockify Integration**: View workspaces, projects, running timers, and log new time entries.
 - **Stdio and SSE Transport**: Run the server locally via standard I/O or host it as a remote service using Server-Sent Events (SSE).
 
 ## Installation
@@ -22,3 +20,4 @@ See the CLI help for options:
 ```bash
 mitra --help
 ```
+

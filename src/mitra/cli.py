@@ -24,8 +24,42 @@ def start(transport, host, port):
         click.echo("Starting Mitra MCP server in stdio mode...", err=True)
         mcp.run(transport="stdio")
     else:
+        import contextlib
+        from fastapi import Request
         click.echo(f"Starting Mitra MCP server in SSE mode on http://{host}:{port} ...", err=True)
-        app = FastAPI(title="Mitra Remote MCP Server")
+        
+        @contextlib.asynccontextmanager
+        async def lifespan(app: FastAPI):
+            async with mcp.session_manager.run():
+                yield
+                
+        app = FastAPI(title="Mitra Remote MCP Server", lifespan=lifespan)
+        
+        @app.middleware("http")
+        async def extract_headers_middleware(request: Request, call_next):
+            from mitra.config import request_api_key, request_workspace_id, request_project_id
+            
+            # Extract headers (FastAPI headers are case-insensitive)
+            api_key = request.headers.get("x-clockify-api-key")
+            workspace_id = request.headers.get("x-clockify-workspace-id")
+            project_id = request.headers.get("x-clockify-project-id")
+            
+            # Set context tokens
+            token_api = request_api_key.set(api_key) if api_key else None
+            token_ws = request_workspace_id.set(workspace_id) if workspace_id else None
+            token_proj = request_project_id.set(project_id) if project_id else None
+            
+            try:
+                response = await call_next(request)
+                return response
+            finally:
+                if token_api:
+                    request_api_key.reset(token_api)
+                if token_ws:
+                    request_workspace_id.reset(token_ws)
+                if token_proj:
+                    request_project_id.reset(token_proj)
+
         app.mount("/", mcp.streamable_http_app())
         uvicorn.run(app, host=host, port=port)
 
