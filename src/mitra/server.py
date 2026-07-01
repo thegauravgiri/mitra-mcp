@@ -5,6 +5,7 @@ import logging
 
 from mitra.config import get_clockify_api_key
 from mitra.clockify import ClockifyClient
+from mitra.wakatime import WakaTimeClient, get_wakatime_api_key
 
 logger = logging.getLogger("mitra.server")
 
@@ -146,23 +147,70 @@ async def clockify_stop_running_timer(
     client = ClockifyClient(_resolve_api_key(api_key))
     return await client.stop_running_timer(workspace_id, user_id, end_time)
 
+# --- WakaTime Tools ---
+
+@mcp.tool()
+async def wakatime_get_today_projects(api_key: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Lists all projects worked on today and their total duration using WakaTime."""
+    client = WakaTimeClient(api_key)
+    return await client.get_today_projects()
+
+@mcp.tool()
+async def wakatime_get_today_file_durations(
+    project: Optional[str] = None,
+    api_key: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Retrieves the file-level time breakdown (durations) for today using WakaTime.
+    Can be filtered by a specific project name.
+    """
+    client = WakaTimeClient(api_key)
+    return await client.get_today_file_durations(project)
+
+@mcp.tool()
+async def wakatime_get_projects_for_range(
+    start_date: str,
+    end_date: str,
+    api_key: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Lists all projects worked on during the specified date range and their total duration using WakaTime.
+    start_date and end_date should be in YYYY-MM-DD format.
+    """
+    client = WakaTimeClient(api_key)
+    return await client.get_projects_for_range(start_date, end_date)
+
+@mcp.tool()
+async def wakatime_get_file_durations_for_range(
+    start_date: str,
+    end_date: str,
+    project: Optional[str] = None,
+    api_key: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Retrieves the file-level time breakdown (durations) for the specified date range using WakaTime.
+    Can be filtered by a specific project name.
+    start_date and end_date should be in YYYY-MM-DD format.
+    """
+    client = WakaTimeClient(api_key)
+    return await client.get_file_durations_for_range(start_date, end_date, project)
+
+
 # --- Prompts and Resources for AI Agents ---
 
 CLOCKIFY_RULES_GUIDE = """# Clockify AI Agent Instructions & Rules
 
-You are an AI Agent assisting the developer with project time-tracking. You run locally in the developer's VS Code environment and connect to the remote Mitra MCP Server. Follow this step-by-step checklist strictly to handle requests quickly, securely, and without ambiguity:
+You are an AI Agent assisting the developer with project time-tracking. You connect to the Mitra MCP Server. Follow this step-by-step checklist strictly to handle requests quickly, securely, and without ambiguity:
 
 ## STEP 1: Check if the request is an EXPLICIT time-logging request
-- **Explicit Request**: If the user tells you to log a time entry with specific times/durations and description (e.g. "add this from 9 AM to 10 AM", "log 1.5 hours for fixing bugs"), **DO NOT run any local tools** (no git diff, no git status).
-- **Action**: Immediately parse the requested times and description, resolve the Project ID (see STEP 4), and call `clockify_add_time_entry` directly. Do not waste time analyzing local workspace state.
+- **Explicit Request**: If the user tells you to log a time entry with specific times/durations and description (e.g. "add this from 9 AM to 10 AM", "log 1.5 hours for fixing bugs"), **DO NOT run WakaTime or git tools**.
+- **Action**: Immediately parse the requested times and description, resolve the Project ID (see STEP 4), and call `clockify_add_time_entry` directly. Do not waste time analyzing workspace state.
 
-## STEP 2: Fetch WakaTime Coding Activity locally
-- WakaTime data must be fetched **locally by you (the client agent)** from the developer's machine:
-  1. Read the developer's local `~/.wakatime.cfg` file to extract the WakaTime `api_key`.
-  2. Perform a local HTTPS request or run a local `curl` command using the extracted API key to query the WakaTime API:
-     `curl -u "<API_KEY>:" "https://wakatime.com/api/v1/users/current/summaries?start=<TODAY>&end=<TODAY>&project=<PROJECT_NAME>"`
-  3. Parse the JSON response to extract files (`entities`) and their `total_seconds` of coding time.
-  4. Use this local data to calculate durations and draft descriptions for Clockify.
+## STEP 2: Fetch WakaTime Coding Activity
+- Fetch today's coding activity using the server's WakaTime tools:
+  1. Call `wakatime_get_today_projects` to list active projects.
+  2. Call `wakatime_get_today_file_durations(project=...)` using the resolved project name to get details of which files were edited and how long was spent on them.
+- Use this file and duration list to calculate time entry durations and descriptions.
 
 ## STEP 3: Check Git Changes for Context (Fallback only)
 - Only if the description of work or list of edited files is not specified, run local git commands (like `git diff`, `git status`) to summarize the changes. Keep descriptions concise.
@@ -186,4 +234,3 @@ def clockify_agent_guide() -> str:
 def clockify_rules_resource() -> str:
     """Read-only access to the Clockify tracking and logging rules guide for AI Agents."""
     return CLOCKIFY_RULES_GUIDE
-

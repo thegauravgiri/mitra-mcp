@@ -12,6 +12,8 @@ import contextvars
 request_api_key: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("request_api_key", default=None)
 request_workspace_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("request_workspace_id", default=None)
 request_project_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("request_project_id", default=None)
+request_wakatime_api_key: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("request_wakatime_api_key", default=None)
+
 
 def get_config_dir() -> Path:
     """Returns the config directory and ensures it exists."""
