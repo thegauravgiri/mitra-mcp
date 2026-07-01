@@ -141,3 +141,40 @@ class ClockifyClient:
 
         return await self._request("PUT", f"workspaces/{workspace_id}/time-entries/{time_entry_id}", json_data=payload)
 
+    async def get_time_entries(
+        self,
+        workspace_id: str,
+        user_id: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        project_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieves time entries for a user in a workspace, filtered by date range and project.
+        If user_id is not provided, retrieves entries for the authenticated user.
+        start_time and end_time must be in ISO 8601 UTC format (e.g. YYYY-MM-DDTHH:MM:SSZ).
+        """
+        if not user_id:
+            user = await self.get_current_user()
+            user_id = user["id"]
+
+        params: Dict[str, Any] = {
+            "page-size": 1000  # Fetch a large page to avoid missing entries
+        }
+        if start_time:
+            params["start"] = start_time
+        if end_time:
+            params["end"] = end_time
+
+        entries = await self._request("GET", f"workspaces/{workspace_id}/user/{user_id}/time-entries", params=params)
+
+        if not entries or not isinstance(entries, list):
+            return []
+
+        if project_id:
+            # Filter by project ID
+            entries = [e for e in entries if e.get("projectId") == project_id]
+
+        return entries
+
+

@@ -100,6 +100,30 @@ async def clockify_update_time_entry(
         billable=billable
     )
 
+@mcp.tool()
+async def clockify_get_time_entries(
+    workspace_id: str,
+    user_id: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    project_id: Optional[str] = None,
+    api_key: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Retrieves a list of time entries for a user in a workspace.
+    If user_id is not specified, it defaults to the authenticated user.
+    Can be filtered by project_id and a date range (start_time and end_time).
+    start_time and end_time must be in ISO 8601 UTC format (e.g., YYYY-MM-DDTHH:MM:SSZ).
+    """
+    client = ClockifyClient(_resolve_api_key(api_key))
+    return await client.get_time_entries(
+        workspace_id=workspace_id,
+        user_id=user_id,
+        start_time=start_time,
+        end_time=end_time,
+        project_id=project_id
+    )
+
 
 @mcp.tool()
 async def clockify_get_running_timer(
