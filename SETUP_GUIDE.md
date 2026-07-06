@@ -53,7 +53,30 @@ Make sure to replace `/Users/gauravgiri/Developer/proshore/mitra/.venv/bin/mitra
 
 ---
 
-## 3. Remote Hosting (SSE Mode)
+## 3. Integrating with Claude Code (CLI)
+
+If you are using the **Claude Code CLI**, you can register the Mitra MCP server using the `claude mcp add` command. 
+
+Run the following command to add Mitra globally (using `--scope user`) or omit `--scope user` to configure it only for the current project:
+
+```bash
+claude mcp add mitra --scope user \
+  -e CLOCKIFY_API_KEY="your_clockify_api_key" \
+  -e CLOCKIFY_WORKSPACE_ID="your_workspace_id" \
+  -e WAKATIME_API_KEY="your_wakatime_api_key" \
+  -e AZURE_DEVOPS_PAT="your_azure_devops_pat" \
+  -e AZURE_DEVOPS_ORG="https://dev.azure.com/your_organization" \
+  -- /Users/gauravgiri/Developer/proshore/mitra/.venv/bin/mitra start --transport stdio
+```
+
+### Useful CLI Commands for Managing MCP:
+- **List installed servers:** `claude mcp list`
+- **Remove Mitra:** `claude mcp remove mitra`
+- **Interactive session control:** Type `/mcp` inside the Claude Code chat session to view status and toggle connections.
+
+---
+
+## 4. Remote Hosting (SSE Mode)
 
 When hosting the server remotely:
 1. Start the server using SSE transport:

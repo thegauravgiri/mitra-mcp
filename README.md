@@ -72,6 +72,60 @@ Start the server:
 mitra start --transport stdio
 ```
 
+#### Claude Desktop Integration
+
+To use Mitra locally with the Claude Desktop app, configure the server in your Claude Desktop configuration file:
+
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add the following JSON snippet under the `mcpServers` key:
+
+```json
+{
+  "mcpServers": {
+    "mitra": {
+      "command": "/absolute/path/to/your/venv/bin/mitra",
+      "args": [
+        "start",
+        "--transport",
+        "stdio"
+      ],
+      "env": {
+        "CLOCKIFY_API_KEY": "your-clockify-api-key",
+        "CLOCKIFY_WORKSPACE_ID": "your-clockify-workspace-id",
+        "WAKATIME_API_KEY": "your-wakatime-api-key",
+        "AZURE_DEVOPS_PAT": "your-azure-devops-pat",
+        "AZURE_DEVOPS_ORG": "https://dev.azure.com/your-org"
+      }
+    }
+  }
+}
+```
+
+> [!NOTE]
+> Make sure to replace `/absolute/path/to/your/venv/bin/mitra` with the actual path to the `mitra` executable inside your Python virtual environment (e.g., `which mitra`).
+
+
+#### Claude Code (CLI) Integration
+
+To use Mitra with the **Claude Code CLI**, register it using the `claude mcp add` command. 
+
+Run the following command in your terminal to configure the server (add the `--scope user` flag if you want it to be globally available across all projects):
+
+```bash
+claude mcp add mitra --scope user \
+  -e CLOCKIFY_API_KEY="your-clockify-api-key" \
+  -e CLOCKIFY_WORKSPACE_ID="your-clockify-workspace-id" \
+  -e WAKATIME_API_KEY="your-wakatime-api-key" \
+  -e AZURE_DEVOPS_PAT="your-azure-devops-pat" \
+  -e AZURE_DEVOPS_ORG="https://dev.azure.com/your-org" \
+  -- /absolute/path/to/your/venv/bin/mitra start --transport stdio
+```
+
+You can view active servers by typing `/mcp` inside your Claude Code session, or check the list using `claude mcp list`.
+
+
 ### 2. Remote SSE Mode (For Web Services)
 
 In remote mode, the server is hosted as an HTTP app. Clients supply credentials on a per-request basis using HTTP headers:
