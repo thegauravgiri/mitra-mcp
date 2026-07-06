@@ -3,18 +3,27 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 import logging
 
-logger = logging.getLogger("mitra.clockify")
+logger = logging.getLogger("mitra.clients.clockify")
 BASE_URL = "https://api.clockify.me/api/v1"
 
+
 class ClockifyClient:
+    """Client for the Clockify REST API."""
+
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.headers = {
             "X-Api-Key": self.api_key,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
-    async def _request(self, method: str, path: str, json_data: Optional[Dict[str, Any]] = None, params: Optional[Dict[str, Any]] = None) -> Any:
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        json_data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Any:
         url = f"{BASE_URL}/{path.lstrip('/')}"
         async with httpx.AsyncClient() as client:
             try:
@@ -24,7 +33,7 @@ class ClockifyClient:
                     headers=self.headers,
                     json=json_data,
                     params=params,
-                    timeout=15.0
+                    timeout=15.0,
                 )
                 if response.status_code >= 400:
                     logger.error(f"Clockify API error {response.status_code}: {response.text}")
@@ -47,7 +56,21 @@ class ClockifyClient:
 
     async def get_projects(self, workspace_id: str) -> List[Dict[str, Any]]:
         """Gets all projects in a workspace."""
-        return await self._request("GET", f"workspaces/{workspace_id}/projects")
+        all_projects = []
+        page = 1
+        while True:
+            projects = await self._request(
+                "GET",
+                f"workspaces/{workspace_id}/projects",
+                params={"page": page, "page-size": 50},
+            )
+            if not projects:
+                break
+            all_projects.extend(projects)
+            if len(projects) < 50:
+                break
+            page += 1
+        return all_projects
 
     async def add_time_entry(
         self,
@@ -57,7 +80,7 @@ class ClockifyClient:
         description: str = "",
         project_id: Optional[str] = None,
         task_id: Optional[str] = None,
-        billable: bool = True
+        billable: bool = True,
     ) -> Dict[str, Any]:
         """
         Creates a time entry in a workspace.
@@ -67,7 +90,7 @@ class ClockifyClient:
         payload: Dict[str, Any] = {
             "start": start_time,
             "description": description,
-            "billable": billable
+            "billable": billable,
         }
         if end_time:
             payload["end"] = end_time
@@ -86,14 +109,14 @@ class ClockifyClient:
             return entries[0]
         return None
 
-    async def stop_running_timer(self, workspace_id: str, user_id: str, end_time: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    async def stop_running_timer(
+        self, workspace_id: str, user_id: str, end_time: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """Stops the currently running timer for the user by setting its end time."""
         if not end_time:
             end_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        payload = {
-            "end": end_time
-        }
+        payload = {"end": end_time}
         return await self._request("PATCH", f"workspaces/{workspace_id}/user/{user_id}/time-entries", json_data=payload)
 
     async def get_time_entry(self, workspace_id: str, time_entry_id: str) -> Dict[str, Any]:
@@ -109,7 +132,7 @@ class ClockifyClient:
         description: Optional[str] = None,
         project_id: Optional[str] = None,
         task_id: Optional[str] = None,
-        billable: Optional[bool] = None
+        billable: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Updates an existing time entry in a workspace.
@@ -118,7 +141,6 @@ class ClockifyClient:
         # Fetch the existing time entry first to ensure we don't overwrite/clear other fields.
         existing = await self.get_time_entry(workspace_id, time_entry_id)
 
-        # Extract existing values
         start = start_time if start_time is not None else existing.get("timeInterval", {}).get("start")
         end = end_time if end_time is not None else existing.get("timeInterval", {}).get("end")
         desc = description if description is not None else existing.get("description")
@@ -126,11 +148,10 @@ class ClockifyClient:
         t_id = task_id if task_id is not None else existing.get("taskId")
         is_billable = billable if billable is not None else existing.get("billable")
 
-        # Construct update payload
         payload: Dict[str, Any] = {
             "start": start,
             "description": desc,
-            "billable": is_billable
+            "billable": is_billable,
         }
         if end:
             payload["end"] = end
@@ -147,7 +168,7 @@ class ClockifyClient:
         user_id: Optional[str] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
-        project_id: Optional[str] = None
+        project_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Retrieves time entries for a user in a workspace, filtered by date range and project.
@@ -158,9 +179,7 @@ class ClockifyClient:
             user = await self.get_current_user()
             user_id = user["id"]
 
-        params: Dict[str, Any] = {
-            "page-size": 1000  # Fetch a large page to avoid missing entries
-        }
+        params: Dict[str, Any] = {"page-size": 1000}
         if start_time:
             params["start"] = start_time
         if end_time:
@@ -172,9 +191,6 @@ class ClockifyClient:
             return []
 
         if project_id:
-            # Filter by project ID
             entries = [e for e in entries if e.get("projectId") == project_id]
 
         return entries
-
-
