@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 import logging
 
-logger = logging.getLogger("mitra.clients.clockify")
+logger = logging.getLogger("mitra.integrations.clockify")
 BASE_URL = "https://api.clockify.me/api/v1"
 
 
@@ -15,6 +15,21 @@ class ClockifyClient:
         self.headers = {
             "X-Api-Key": self.api_key,
             "Content-Type": "application/json",
+        }
+
+    @staticmethod
+    def trim_time_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract only essential fields from a Clockify time entry to reduce payload size."""
+        interval = entry.get("timeInterval", {})
+        return {
+            "id": entry.get("id"),
+            "description": entry.get("description"),
+            "start": interval.get("start"),
+            "end": interval.get("end"),
+            "duration": interval.get("duration"),
+            "projectId": entry.get("projectId"),
+            "taskId": entry.get("taskId"),
+            "billable": entry.get("billable"),
         }
 
     async def _request(
@@ -179,7 +194,7 @@ class ClockifyClient:
             user = await self.get_current_user()
             user_id = user["id"]
 
-        params: Dict[str, Any] = {"page-size": 1000}
+        params: Dict[str, Any] = {"page-size": 200}
         if start_time:
             params["start"] = start_time
         if end_time:
@@ -193,4 +208,4 @@ class ClockifyClient:
         if project_id:
             entries = [e for e in entries if e.get("projectId") == project_id]
 
-        return entries
+        return [self.trim_time_entry(e) for e in entries]

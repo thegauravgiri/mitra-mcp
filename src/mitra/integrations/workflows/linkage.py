@@ -2,13 +2,13 @@
 
 from typing import Optional, Dict, Any
 
-from mitra.clients.clockify import ClockifyClient
-from mitra.clients.azure_devops import AzureDevOpsClient
-from mitra.tools.azure_devops import _resolve_azure_config
-from mitra.context import get_clockify_api_key, get_workspace_id
+from mitra.integrations.clockify.client import ClockifyClient
+from mitra.integrations.azure_devops.client import AzureDevOpsClient
+from mitra.integrations.azure_devops.tools import _resolve_azure_config
+from mitra.integrations.clockify.context import get_clockify_api_key, get_workspace_id
 
 
-def register(mcp) -> None:
+def register_tools(mcp) -> None:
     """Register cross-integration linkage tools with the MCP server."""
 
     @mcp.tool()
@@ -38,7 +38,7 @@ def register(mcp) -> None:
             billable: Whether the time entry is billable.
         """
         import datetime
-        
+
         # 1. Fetch the work item from Azure DevOps
         resolved_pat, resolved_org = _resolve_azure_config(azure_pat, azure_organization_url)
         azure_client = AzureDevOpsClient(resolved_pat, resolved_org)
@@ -56,19 +56,19 @@ def register(mcp) -> None:
                 "Clockify API Key not found. Please provide the 'clockify_api_key' parameter, "
                 "set it via client headers, or set CLOCKIFY_API_KEY environment variable."
             )
-            
+
         resolved_ws_id = workspace_id or get_workspace_id()
         if not resolved_ws_id:
             raise ValueError(
                 "Clockify Workspace ID not found. Please provide the 'workspace_id' parameter, "
                 "set it via client headers, or set CLOCKIFY_WORKSPACE_ID environment variable."
             )
-            
+
         clockify_client = ClockifyClient(clockify_key)
-        
+
         # Default start_time to now if not provided
         st_time = start_time or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        
+
         entry = await clockify_client.add_time_entry(
             workspace_id=resolved_ws_id, start_time=st_time, end_time=end_time,
             description=description, project_id=clockify_project_id, billable=billable,

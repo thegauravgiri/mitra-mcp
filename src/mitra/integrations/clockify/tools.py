@@ -2,8 +2,8 @@
 
 from typing import Optional, List, Dict, Any
 
-from mitra.clients.clockify import ClockifyClient
-from mitra.context import get_clockify_api_key, get_workspace_id
+from mitra.integrations.clockify.client import ClockifyClient
+from mitra.integrations.clockify.context import get_clockify_api_key, get_workspace_id
 
 
 def _resolve_api_key(api_key: Optional[str] = None) -> str:
@@ -28,7 +28,7 @@ def _resolve_workspace_id(workspace_id: Optional[str] = None) -> str:
     return ws_id
 
 
-def register(mcp) -> None:
+def register_tools(mcp) -> None:
     """Register all Clockify tools with the MCP server."""
 
     @mcp.tool()
@@ -131,13 +131,13 @@ def register(mcp) -> None:
     ) -> Optional[Dict[str, Any]]:
         """Retrieves the currently running Clockify timer for the specified user and workspace."""
         client = ClockifyClient(_resolve_api_key(api_key))
-        
+
         # If user_id is not provided, fetch it using get_current_user
         resolved_user_id = user_id
         if not resolved_user_id:
             user = await client.get_current_user()
             resolved_user_id = user["id"]
-            
+
         return await client.get_running_timer(_resolve_workspace_id(workspace_id), resolved_user_id)
 
     @mcp.tool()
@@ -146,10 +146,42 @@ def register(mcp) -> None:
     ) -> Optional[Dict[str, Any]]:
         """Stops the currently running Clockify timer for the specified user and workspace."""
         client = ClockifyClient(_resolve_api_key(api_key))
-        
+
         resolved_user_id = user_id
         if not resolved_user_id:
             user = await client.get_current_user()
             resolved_user_id = user["id"]
-            
+
         return await client.stop_running_timer(_resolve_workspace_id(workspace_id), resolved_user_id, end_time)
+
+    @mcp.tool()
+    async def clockify_quick_status(
+        workspace_id: Optional[str] = None, api_key: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Returns a complete Clockify status snapshot in a single call.
+        Includes: current user info, active workspace, running timer (if any), and today's time entries.
+        Use this FIRST instead of calling get_user_info, get_running_timer, and get_time_entries separately.
+        """
+        import datetime
+        client = ClockifyClient(_resolve_api_key(api_key))
+        ws_id = _resolve_workspace_id(workspace_id)
+
+        # Fetch user info
+        user = await client.get_current_user()
+        user_id = user["id"]
+
+        # Fetch running timer
+        running_timer = await client.get_running_timer(ws_id, user_id)
+
+        # Fetch today's entries
+        today = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+        entries = await client.get_time_entries(workspace_id=ws_id, user_id=user_id, start_time=today)
+
+        return {
+            "user": {"id": user_id, "name": user.get("name"), "email": user.get("email")},
+            "workspace_id": ws_id,
+            "running_timer": ClockifyClient.trim_time_entry(running_timer) if running_timer else None,
+            "todays_entries": entries,  # Already trimmed by get_time_entries
+            "todays_entry_count": len(entries),
+        }

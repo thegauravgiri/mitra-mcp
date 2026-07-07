@@ -4,7 +4,7 @@ import re
 from typing import Dict, Any, List, Optional
 import logging
 
-logger = logging.getLogger("mitra.clients.azure_devops")
+logger = logging.getLogger("mitra.integrations.azure_devops")
 
 API_VERSION = "7.0"
 
@@ -75,8 +75,13 @@ class AzureDevOpsClient:
 
     # --- Work Item Operations ---
 
-    async def get_work_item(self, project: str, work_item_id: int, expand: str = "All") -> Dict[str, Any]:
-        """Fetch a single work item by ID."""
+    async def get_work_item(self, project: str, work_item_id: int, expand: Optional[str] = None) -> Dict[str, Any]:
+        """Fetch a single work item by ID.
+
+        Args:
+            expand: Optional expansion. Use "All" for full details (relations, attachments).
+                    Default is None for a lightweight response (fields only).
+        """
         url = f"{self.organization_url}/{project}/_apis/wit/workitems/{work_item_id}"
         params = {}
         if expand:

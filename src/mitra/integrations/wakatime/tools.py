@@ -2,8 +2,8 @@
 
 from typing import Optional, List, Dict, Any
 
-from mitra.clients.wakatime import WakaTimeClient
-from mitra.context import get_wakatime_api_key
+from mitra.integrations.wakatime.client import WakaTimeClient
+from mitra.integrations.wakatime.context import get_wakatime_api_key
 
 
 def _resolve_api_key(api_key: Optional[str] = None) -> str:
@@ -17,7 +17,7 @@ def _resolve_api_key(api_key: Optional[str] = None) -> str:
     return key
 
 
-def register(mcp) -> None:
+def register_tools(mcp) -> None:
     """Register all WakaTime tools with the MCP server."""
 
     @mcp.tool()

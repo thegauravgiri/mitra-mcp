@@ -8,38 +8,102 @@ The server is fully **stateless**: individual team members supply their credenti
 
 ## Code Architecture
 
-Mitra is structured to be clean, modular, and extremely easy to extend:
+Mitra uses an **integration-per-folder** architecture with **auto-discovery**. Each integration is self-contained — its client, tools, prompts, and context live together in one folder:
 
 ```text
 src/mitra/
 ├── __init__.py
-├── server.py           # Initializes FastMCP and registers modules
-├── cli.py              # Command-line interface to start the server
-├── context.py          # Dynamic context variables and credential resolution helpers
-├── clients/            # Pure stateless API clients for third-party integrations
+├── server.py                  # FastMCP instance + auto-discovery (never needs editing)
+├── cli.py                     # CLI entrypoint (never needs editing)
+│
+├── core/                      # Shared infrastructure
 │   ├── __init__.py
-│   ├── clockify.py     # ClockifyClient
-│   ├── wakatime.py     # WakaTimeClient
-│   └── azure_devops.py # AzureDevOpsClient
-├── tools/              # MCP tool registration functions
-│   ├── __init__.py     # Hub to register all integration tools
-│   ├── clockify.py     # Clockify tools registration
-│   ├── wakatime.py     # WakaTime tools registration
-│   ├── azure_devops.py # Azure DevOps tools registration
-│   └── linkage.py      # Unified linkages (e.g. Clockify + Azure DevOps)
-└── prompts/            # Agent prompts & system resources
+│   ├── context.py             # Base credential resolution helpers
+│   └── registry.py            # Auto-discovery engine
+│
+└── integrations/              # ← Each integration is one self-contained folder
     ├── __init__.py
-    └── guides.py       # Unified instructions guides and rules
+    │
+    ├── clockify/              # Clockify time tracking
+    │   ├── __init__.py        # register(mcp) entry point
+    │   ├── client.py          # ClockifyClient (API wrapper)
+    │   ├── tools.py           # @mcp.tool() definitions
+    │   ├── prompts.py         # @mcp.prompt() + @mcp.resource()
+    │   └── context.py         # Context vars, HTTP headers, resolvers
+    │
+    ├── wakatime/              # WakaTime coding activity
+    │   ├── __init__.py
+    │   ├── client.py
+    │   ├── tools.py
+    │   └── context.py
+    │
+    ├── azure_devops/          # Azure DevOps work items
+    │   ├── __init__.py
+    │   ├── client.py
+    │   ├── tools.py
+    │   ├── prompts.py
+    │   └── context.py
+    │
+    └── workflows/             # Cross-integration composite tools
+        ├── __init__.py
+        ├── linkage.py         # Clockify ↔ Azure DevOps linkage
+        ├── fill_clockify.py   # Composite fill-timesheet tools
+        └── prompts.py         # Unified Mitra agent guide
 ```
 
 ### Adding a New Integration (Developer Guide)
 
-Adding a new integration (for example, `Jira` or `Github`) is simple:
-1. **Create the Client**: Add `src/mitra/clients/jira.py` to wrap the Jira REST API.
-2. **Create the Tools**: Add `src/mitra/tools/jira.py` and write a `register(mcp)` function defining Jira-specific tools using `@mcp.tool()`.
-3. **Register the Tools**: Import and call the registration function in `src/mitra/tools/__init__.py`.
+Adding a new integration (for example, `Jira` or `Github`) requires creating **one folder** — no other files need to be modified:
 
-This design separates the client layer (external API requests) from the tool layer (MCP protocol schema and definitions), making the codebase easy to maintain.
+```bash
+mkdir -p src/mitra/integrations/jira
+```
+
+**1. Create the entry point** (`__init__.py`):
+```python
+# src/mitra/integrations/jira/__init__.py
+from mitra.integrations.jira.tools import register_tools
+
+def register(mcp):
+    register_tools(mcp)
+```
+
+**2. Create the API client** (`client.py`):
+```python
+# src/mitra/integrations/jira/client.py
+class JiraClient:
+    def __init__(self, api_key: str): ...
+    async def list_issues(self, project: str): ...
+```
+
+**3. Create the tools** (`tools.py`):
+```python
+# src/mitra/integrations/jira/tools.py
+from mitra.integrations.jira.client import JiraClient
+
+def register_tools(mcp):
+    @mcp.tool()
+    async def jira_list_issues(project: str, api_key: str) -> list:
+        """Lists Jira issues for a project."""
+        client = JiraClient(api_key)
+        return await client.list_issues(project)
+```
+
+**4. (Optional) Add credential headers** (`context.py`):
+```python
+# src/mitra/integrations/jira/context.py
+import contextvars
+from mitra.core.context import resolve_credential
+
+request_jira_api_key = contextvars.ContextVar("jira_api_key", default=None)
+
+HEADERS = {"x-jira-api-key": request_jira_api_key}
+
+def get_jira_api_key():
+    return resolve_credential(request_jira_api_key, "JIRA_API_KEY")
+```
+
+**That's it.** The auto-discovery engine picks up your new folder automatically. The SSE middleware auto-collects your headers. No other files to touch.
 
 ---
 

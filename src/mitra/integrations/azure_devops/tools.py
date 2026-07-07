@@ -2,8 +2,8 @@
 
 from typing import Optional, List, Dict, Any
 
-from mitra.clients.azure_devops import AzureDevOpsClient
-from mitra.context import get_azure_devops_pat, get_azure_devops_org
+from mitra.integrations.azure_devops.client import AzureDevOpsClient
+from mitra.integrations.azure_devops.context import get_azure_devops_pat, get_azure_devops_org
 
 
 def _resolve_azure_config(pat: Optional[str] = None, organization_url: Optional[str] = None) -> tuple:
@@ -23,7 +23,7 @@ def _resolve_azure_config(pat: Optional[str] = None, organization_url: Optional[
     return resolved_pat, resolved_org
 
 
-def register(mcp) -> None:
+def register_tools(mcp) -> None:
     """Register all Azure DevOps tools with the MCP server."""
 
     @mcp.tool()
