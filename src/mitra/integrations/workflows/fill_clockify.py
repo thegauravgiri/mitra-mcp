@@ -12,6 +12,7 @@ from mitra.integrations.clockify.context import (
     get_clockify_api_key, get_workspace_id, get_project_id,
 )
 from mitra.integrations.wakatime.context import get_wakatime_api_key
+from mitra.integrations.google_calendar.service import GoogleCalendarService
 
 logger = logging.getLogger("mitra.integrations.workflows")
 
@@ -41,6 +42,7 @@ def register_tools(mcp) -> None:
         wakatime_api_key: Optional[str] = None,
         azure_pat: Optional[str] = None,
         azure_organization_url: Optional[str] = None,
+        google_calendar_id: str = "primary",
     ) -> Dict[str, Any]:
         """
         High-level composite tool for filling Clockify timesheets. Performs ALL data gathering
@@ -50,7 +52,8 @@ def register_tools(mcp) -> None:
         1. Fetches WakaTime coding activity for the date (default: today)
         2. Gets current Clockify status (running timer, existing entries)
         3. Fetches active Azure DevOps cards assigned to the user (if azure_project provided)
-        4. Returns a structured plan with suggested time entries
+        4. Fetches Google Calendar events for the date range (if google credentials provided)
+        5. Returns a structured plan with suggested time entries
 
         The agent should present this plan to the user, then call clockify_execute_fill_plan
         or clockify_log_time_for_card / clockify_add_time_entry to create the entries.
@@ -65,6 +68,11 @@ def register_tools(mcp) -> None:
             wakatime_api_key: WakaTime API key. Falls back to env/config.
             azure_pat: Azure DevOps PAT. Falls back to env.
             azure_organization_url: Azure DevOps org URL. Falls back to env.
+            google_access_token: Google access token. Falls back to env.
+            google_refresh_token: Google refresh token. Falls back to env.
+            google_client_id: Google client ID. Falls back to env.
+            google_client_secret: Google client secret. Falls back to env.
+            google_calendar_id: Google Calendar ID. Defaults to "primary".
         """
         # Resolve dates
         target_date = date or datetime.datetime.now().strftime("%Y-%m-%d")
@@ -75,6 +83,7 @@ def register_tools(mcp) -> None:
             "wakatime_activity": None,
             "clockify_status": None,
             "azure_active_cards": None,
+            "google_calendar_events": None,
             "errors": [],
         }
 
@@ -133,6 +142,23 @@ def register_tools(mcp) -> None:
                 ]
             except Exception as e:
                 result["errors"].append(f"Azure DevOps fetch failed: {str(e)}")
+
+        # 4. Fetch Google Calendar events (if connected for user)
+        try:
+            google_service = GoogleCalendarService()
+            time_min = f"{target_date}T00:00:00Z"
+            time_max = f"{end_date}T23:59:59Z"
+            events = await google_service.list_events(
+                calendar_id=google_calendar_id,
+                time_min=time_min,
+                time_max=time_max
+            )
+            result["google_calendar_events"] = [
+                GoogleCalendarService.trim_event(e) for e in events
+            ]
+        except Exception as e:
+            # Catch gracefully so missing auth doesn't crash the entire plan
+            result["errors"].append(f"Google Calendar fetch skipped: {str(e)}")
 
         return result
 

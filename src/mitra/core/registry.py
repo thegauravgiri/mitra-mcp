@@ -69,6 +69,13 @@ def collect_headers() -> Dict[str, "contextvars.ContextVar"]:
     """
     all_headers: Dict[str, contextvars.ContextVar] = {}
 
+    # Include core headers (e.g. x-user-id)
+    try:
+        from mitra.core.user import HEADERS as core_headers
+        all_headers.update(core_headers)
+    except ImportError:
+        pass
+
     for module_name in discover_integrations():
         context_module_name = f"{module_name}.context"
         try:

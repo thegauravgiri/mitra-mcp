@@ -15,6 +15,7 @@ In **stdio** mode, Mitra reads settings directly from your system environment va
 | `WAKATIME_API_KEY` | Your WakaTime API Key. |
 | `AZURE_DEVOPS_PAT` | Personal Access Token (PAT) with `Work Items (Read & Write)` and `Project and Team (Read)` scopes. |
 | `AZURE_DEVOPS_ORG` | Organization URL (e.g. `https://dev.azure.com/your-organization`). |
+| `USER_ID` | (Optional) Your email address to identify your Google Calendar settings. Defaults to the email address retrieved from Clockify if omitted. |
 
 ---
 
@@ -79,13 +80,33 @@ claude mcp add mitra --scope user \
 ## 4. Remote Hosting (SSE Mode)
 
 When hosting the server remotely:
-1. Start the server using SSE transport:
-   ```bash
-   mitra start --transport sse --host 0.0.0.0 --port 8000
-   ```
-2. Clients should configure connection credentials within HTTP headers sent along with client requests:
-   - `x-clockify-api-key`
-   - `x-clockify-workspace-id`
-   - `x-wakatime-api-key`
-   - `x-azure-devops-pat`
-   - `x-azure-devops-org`
+
+### 1. Server Configuration
+Start the server in SSE mode. You must provide the following environment variables to support Google Calendar multi-user authentication:
+- `GOOGLE_CLIENT_ID`: Your Google OAuth Client ID.
+- `GOOGLE_CLIENT_SECRET`: Your Google OAuth Client Secret.
+- `GOOGLE_REDIRECT_URI`: The callback endpoint (e.g., `https://mitra-server.com/auth/google/callback`).
+- `GOOGLE_ENCRYPTION_KEY`: A 32-byte url-safe base64-encoded key for credential encryption (e.g., generated with `cryptography.fernet.Fernet.generate_key()`).
+
+```bash
+GOOGLE_CLIENT_ID="your_client_id" \
+GOOGLE_CLIENT_SECRET="your_client_secret" \
+GOOGLE_REDIRECT_URI="http://localhost:8000/auth/google/callback" \
+GOOGLE_ENCRYPTION_KEY="your_base64_fernet_key" \
+mitra start --transport sse --host 0.0.0.0 --port 8000
+```
+
+### 2. Client Authentication
+Clients should configure connection credentials within HTTP headers sent along with client requests:
+- `x-clockify-api-key`
+- `x-clockify-workspace-id`
+- `x-wakatime-api-key`
+- `x-azure-devops-pat`
+- `x-azure-devops-org`
+- `x-user-id` (Optional: your email address to identify your Google Calendar settings; defaults to the email address retrieved from Clockify if omitted)
+
+### 3. Connect Google Calendar (One-Time Setup)
+To connect your Google Calendar:
+1. Run the `google_calendar_connect` tool from your client/IDE, or navigate directly to `/auth/google/start?user_id=your_user_id` in your web browser.
+2. Sign in with Google and authorize the app.
+3. The server will securely save your encrypted tokens. You can now use all Google Calendar tools without sending access/refresh tokens in your headers!
