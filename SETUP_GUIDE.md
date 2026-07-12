@@ -1,112 +1,225 @@
-# Mitra MCP Server Setup Guide
+# Mitra MCP Server — Setup Guide
 
-This guide walks you through configuring credentials and connecting the Mitra MCP server to local IDEs or remote web services.
+Mitra is hosted on a **shared remote server**. You do **not** need to install or run Mitra yourself — you only need to configure your IDE or AI client to connect to the remote instance. This guide covers how to do that.
+
+> [!IMPORTANT]
+> All connections to Mitra are **remote**. Your credentials (API keys, PATs) are sent as HTTP headers with every request and are never stored on the server.
 
 ---
 
-## 1. Environment Variables Configuration
+## Prerequisites
 
-In **stdio** mode, Mitra reads settings directly from your system environment variables. You can add the following to your shell profile (`~/.zshrc` or `~/.bashrc`) or specify them when starting the server:
+Before you connect, gather the following credentials. You will enter them into your client's MCP configuration.
 
-| Environment Variable | Description |
+| Credential | Where to find it |
 |---|---|
-| `CLOCKIFY_API_KEY` | Your personal Clockify API Key (from Clockify Settings > Preferences). |
-| `CLOCKIFY_WORKSPACE_ID` | The ID of your Clockify workspace to log time to. |
-| `WAKATIME_API_KEY` | Your WakaTime API Key. |
-| `AZURE_DEVOPS_PAT` | Personal Access Token (PAT) with `Work Items (Read & Write)` and `Project and Team (Read)` scopes. |
-| `AZURE_DEVOPS_ORG` | Organization URL (e.g. `https://dev.azure.com/your-organization`). |
-| `USER_ID` | (Optional) Your email address to identify your Google Calendar settings. Defaults to the email address retrieved from Clockify if omitted. |
+| **Clockify API Key** | [Clockify → Profile Settings → API](https://app.clockify.me/user/preferences#advanced) |
+| **Clockify Workspace ID** | Clockify → Workspace Settings (the ID in the URL) |
+| **WakaTime API Key** | [WakaTime → Settings → API Key](https://wakatime.com/settings/api-key) |
+| **Azure DevOps PAT** | Azure DevOps → User Settings → Personal Access Tokens (needs `Work Items Read & Write`, `Project and Team Read` scopes) |
+| **Azure DevOps Org URL** | Your organization URL, e.g. `https://dev.azure.com/your-organization` |
+| **User ID** *(optional)* | Your email address, used to identify your Google Calendar account. If omitted, defaults to the email retrieved from your Clockify profile. |
+
+You will also need the **Mitra server URL** from your administrator (e.g. `https://mitra.example.com`).
 
 ---
 
-## 2. Integrating with Claude Desktop
+## Connecting from VS Code
 
-To use Mitra locally with the Claude Desktop app, add the server to your Claude Desktop configuration file:
+VS Code supports remote MCP servers through the `mcp.json` settings file. You can configure it at the **user level** (applies to all workspaces) or the **workspace level**.
 
-### Configuration File Path:
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+### User-level configuration
 
-### Configuration Content:
+Create or edit the file at:
+- **macOS / Linux**: `~/.config/Code/User/settings.json`  
+- **Windows**: `%APPDATA%\Code\User\settings.json`
+
+Add the following inside the top-level JSON object:
+
 ```json
 {
-  "mcpServers": {
-    "mitra": {
-      "command": "/Users/gauravgiri/Developer/proshore/mitra/.venv/bin/mitra",
-      "args": [
-        "start",
-        "--transport",
-        "stdio"
-      ],
-      "env": {
-        "CLOCKIFY_API_KEY": "your_clockify_api_key",
-        "CLOCKIFY_WORKSPACE_ID": "your_workspace_id",
-        "WAKATIME_API_KEY": "your_wakatime_api_key",
-        "AZURE_DEVOPS_PAT": "your_azure_devops_pat",
-        "AZURE_DEVOPS_ORG": "https://dev.azure.com/your_organization"
+  "mcp": {
+    "servers": {
+      "mitra": {
+        "type": "sse",
+        "url": "https://mitra.example.com/sse",
+        "headers": {
+          "x-clockify-api-key": "YOUR_CLOCKIFY_API_KEY",
+          "x-clockify-workspace-id": "YOUR_CLOCKIFY_WORKSPACE_ID",
+          "x-wakatime-api-key": "YOUR_WAKATIME_API_KEY",
+          "x-azure-devops-pat": "YOUR_AZURE_DEVOPS_PAT",
+          "x-azure-devops-org": "https://dev.azure.com/YOUR_ORGANIZATION",
+          "x-user-id": "your.email@example.com"
+        }
       }
     }
   }
 }
 ```
 
-Make sure to replace `/Users/gauravgiri/Developer/proshore/mitra/.venv/bin/mitra` with the actual path to the `mitra` executable in your virtual environment.
+### Workspace-level configuration
+
+Create a `.vscode/mcp.json` file at the root of your project:
+
+```json
+{
+  "servers": {
+    "mitra": {
+      "type": "sse",
+      "url": "https://mitra.example.com/sse",
+      "headers": {
+        "x-clockify-api-key": "YOUR_CLOCKIFY_API_KEY",
+        "x-clockify-workspace-id": "YOUR_CLOCKIFY_WORKSPACE_ID",
+        "x-wakatime-api-key": "YOUR_WAKATIME_API_KEY",
+        "x-azure-devops-pat": "YOUR_AZURE_DEVOPS_PAT",
+        "x-azure-devops-org": "https://dev.azure.com/YOUR_ORGANIZATION",
+        "x-user-id": "your.email@example.com"
+      }
+    }
+  }
+}
+```
+
+> [!TIP]
+> You can use VS Code input variables to avoid hardcoding secrets. Replace any value with `"${input:variableName}"` and define the input in your workspace settings.
+
+### Verify the connection
+
+1. Open the **Command Palette** (`Cmd+Shift+P` / `Ctrl+Shift+P`).
+2. Run **"MCP: List Servers"** — you should see `mitra` listed and connected.
 
 ---
 
-## 3. Integrating with Claude Code (CLI)
+## Connecting from Claude
 
-If you are using the **Claude Code CLI**, you can register the Mitra MCP server using the `claude mcp add` command. 
+Claude offers two interfaces — the **Claude Desktop** app and the **Claude Code** CLI. Both support remote MCP servers.
 
-Run the following command to add Mitra globally (using `--scope user`) or omit `--scope user` to configure it only for the current project:
+### Claude Desktop
 
-```bash
-claude mcp add mitra --scope user \
-  -e CLOCKIFY_API_KEY="your_clockify_api_key" \
-  -e CLOCKIFY_WORKSPACE_ID="your_workspace_id" \
-  -e WAKATIME_API_KEY="your_wakatime_api_key" \
-  -e AZURE_DEVOPS_PAT="your_azure_devops_pat" \
-  -e AZURE_DEVOPS_ORG="https://dev.azure.com/your_organization" \
-  -- /Users/gauravgiri/Developer/proshore/mitra/.venv/bin/mitra start --transport stdio
+Edit the Claude Desktop configuration file:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add Mitra as a remote MCP server:
+
+```json
+{
+  "mcpServers": {
+    "mitra": {
+      "url": "https://mitra.example.com/sse",
+      "headers": {
+        "x-clockify-api-key": "YOUR_CLOCKIFY_API_KEY",
+        "x-clockify-workspace-id": "YOUR_CLOCKIFY_WORKSPACE_ID",
+        "x-wakatime-api-key": "YOUR_WAKATIME_API_KEY",
+        "x-azure-devops-pat": "YOUR_AZURE_DEVOPS_PAT",
+        "x-azure-devops-org": "https://dev.azure.com/YOUR_ORGANIZATION",
+        "x-user-id": "your.email@example.com"
+      }
+    }
+  }
+}
 ```
 
-### Useful CLI Commands for Managing MCP:
-- **List installed servers:** `claude mcp list`
-- **Remove Mitra:** `claude mcp remove mitra`
-- **Interactive session control:** Type `/mcp` inside the Claude Code chat session to view status and toggle connections.
+> [!NOTE]
+> Unlike a local MCP server, there is no `command` or `args` field. You are connecting to a **remote** server — only `url` and `headers` are needed.
+
+Restart Claude Desktop after saving the file.
+
+### Claude Code (CLI)
+
+Register Mitra as a remote MCP server using the `claude mcp add` command:
+
+```bash
+claude mcp add mitra \
+  --transport sse \
+  --scope user \
+  --header "x-clockify-api-key: YOUR_CLOCKIFY_API_KEY" \
+  --header "x-clockify-workspace-id: YOUR_CLOCKIFY_WORKSPACE_ID" \
+  --header "x-wakatime-api-key: YOUR_WAKATIME_API_KEY" \
+  --header "x-azure-devops-pat: YOUR_AZURE_DEVOPS_PAT" \
+  --header "x-azure-devops-org: https://dev.azure.com/YOUR_ORGANIZATION" \
+  --header "x-user-id: your.email@example.com" \
+  --url https://mitra.example.com/sse
+```
+
+- Use `--scope user` to make Mitra available across all projects, or omit it for the current project only.
+- Use `--scope project` to store the config in the current project's `.mcp.json`.
+
+**Useful CLI commands:**
+
+| Command | Description |
+|---|---|
+| `claude mcp list` | List all configured MCP servers |
+| `claude mcp remove mitra` | Remove the Mitra server |
+| `/mcp` (inside a session) | View status and toggle MCP connections |
 
 ---
 
-## 4. Remote Hosting (SSE Mode)
+## Connecting from Codex
 
-When hosting the server remotely:
+OpenAI Codex CLI supports remote MCP servers through a configuration file.
 
-### 1. Server Configuration
-Start the server in SSE mode. You must provide the following environment variables to support Google Calendar multi-user authentication:
-- `GOOGLE_CLIENT_ID`: Your Google OAuth Client ID.
-- `GOOGLE_CLIENT_SECRET`: Your Google OAuth Client Secret.
-- `GOOGLE_REDIRECT_URI`: The callback endpoint (e.g., `https://mitra-server.com/auth/google/callback`).
-- `GOOGLE_ENCRYPTION_KEY`: A 32-byte url-safe base64-encoded key for credential encryption (e.g., generated with `cryptography.fernet.Fernet.generate_key()`).
+Create or edit `~/.codex/config.json` (or the project-level `.codex/config.json`):
 
-```bash
-GOOGLE_CLIENT_ID="your_client_id" \
-GOOGLE_CLIENT_SECRET="your_client_secret" \
-GOOGLE_REDIRECT_URI="http://localhost:8000/auth/google/callback" \
-GOOGLE_ENCRYPTION_KEY="your_base64_fernet_key" \
-mitra start --transport sse --host 0.0.0.0 --port 8000
+```json
+{
+  "mcpServers": {
+    "mitra": {
+      "type": "sse",
+      "url": "https://mitra.example.com/sse",
+      "headers": {
+        "x-clockify-api-key": "YOUR_CLOCKIFY_API_KEY",
+        "x-clockify-workspace-id": "YOUR_CLOCKIFY_WORKSPACE_ID",
+        "x-wakatime-api-key": "YOUR_WAKATIME_API_KEY",
+        "x-azure-devops-pat": "YOUR_AZURE_DEVOPS_PAT",
+        "x-azure-devops-org": "https://dev.azure.com/YOUR_ORGANIZATION",
+        "x-user-id": "your.email@example.com"
+      }
+    }
+  }
+}
 ```
 
-### 2. Client Authentication
-Clients should configure connection credentials within HTTP headers sent along with client requests:
-- `x-clockify-api-key`
-- `x-clockify-workspace-id`
-- `x-wakatime-api-key`
-- `x-azure-devops-pat`
-- `x-azure-devops-org`
-- `x-user-id` (Optional: your email address to identify your Google Calendar settings; defaults to the email address retrieved from Clockify if omitted)
+Then start a Codex session as usual — Mitra tools will be available automatically.
 
-### 3. Connect Google Calendar (One-Time Setup)
-To connect your Google Calendar:
-1. Run the `google_calendar_connect` tool from your client/IDE, or navigate directly to `/auth/google/start?user_id=your_user_id` in your web browser.
-2. Sign in with Google and authorize the app.
-3. The server will securely save your encrypted tokens. You can now use all Google Calendar tools without sending access/refresh tokens in your headers!
+---
+
+## Google Calendar Setup (One-Time)
+
+Google Calendar requires a one-time OAuth authorization. This is separate from the header-based credentials above.
+
+1. **Initiate the connection** — do one of the following:
+   - Ask your AI assistant to run the `google_calendar_connect` tool, **or**
+   - Open this URL in your browser:  
+     `https://mitra.example.com/auth/google/start?user_id=YOUR_EMAIL`
+2. **Authorize with Google** — sign in and grant calendar access.
+3. **Done** — the server securely stores your encrypted tokens. All Google Calendar tools will work automatically from this point on.
+
+> [!NOTE]
+> The `user_id` parameter should be the same email you use as your `x-user-id` header (or your Clockify email if you don't set that header).
+
+---
+
+## Credential Headers Reference
+
+Every request to the remote Mitra server carries your credentials as HTTP headers. Your client sends these automatically once configured.
+
+| Header | Required | Maps to |
+|---|---|---|
+| `x-clockify-api-key` | Yes | Clockify API Key |
+| `x-clockify-workspace-id` | Yes | Clockify Workspace ID |
+| `x-wakatime-api-key` | Yes | WakaTime API Key |
+| `x-azure-devops-pat` | Yes | Azure DevOps Personal Access Token |
+| `x-azure-devops-org` | Yes | Azure DevOps Organization URL |
+| `x-user-id` | No | Your email (for Google Calendar identity; defaults to Clockify email) |
+
+---
+
+## Troubleshooting
+
+| Problem | Solution |
+|---|---|
+| Tools not appearing | Verify the server URL is correct and reachable. Check that your client shows `mitra` as connected. |
+| `401` or credential errors | Double-check that all required headers are set with valid API keys / PATs. |
+| Google Calendar not working | Run the one-time OAuth flow described above. Ensure `x-user-id` matches the email you authorized with. |
+| Connection timeouts | Confirm network access to the Mitra server. Check with your administrator if a VPN is required. |
