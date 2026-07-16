@@ -63,9 +63,11 @@ def start(transport, host, port):
         # Enforce trusted hosts if ALLOWED_HOSTS is defined
         allowed_hosts_env = os.environ.get("ALLOWED_HOSTS")
         if allowed_hosts_env:
-            from fastapi.middleware.trustedhost import TrustedHostMiddleware
-            allowed_hosts = [h.strip() for h in allowed_hosts_env.split(",") if h.strip()]
-            app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+            allowed_hosts_env = allowed_hosts_env.strip('"\'')
+            if allowed_hosts_env and allowed_hosts_env != "*":
+                from fastapi.middleware.trustedhost import TrustedHostMiddleware
+                allowed_hosts = [h.strip().strip('"\'') for h in allowed_hosts_env.split(",") if h.strip()]
+                app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
         # ── Generic OAuth Endpoints ──────────────────────────────────────────────────
 
