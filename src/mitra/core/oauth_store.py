@@ -1,12 +1,14 @@
-"""OAuth Credential Store interfaces and SQLite database persistence."""
+"""OAuth Credential Store interfaces and PostgreSQL database persistence."""
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 import logging
 import os
-import sqlite3
 import uuid
 from typing import Optional, Dict, Any
+
+import psycopg
+from psycopg.rows import dict_row
 
 logger = logging.getLogger("mitra.core.oauth_store")
 
@@ -41,23 +43,60 @@ class OAuthCredentialStore(ABC):
         pass
 
 
-class SQLiteOAuthCredentialStore(OAuthCredentialStore):
-    """SQLite-backed implementation of OAuthCredentialStore."""
+class PostgresOAuthCredentialStore(OAuthCredentialStore):
+    """PostgreSQL-backed implementation of OAuthCredentialStore."""
 
-    def __init__(self, db_path: Optional[str] = None):
-        """Initializes the SQLite database.
+    @staticmethod
+    def _format_dsn(dsn: str) -> str:
+        """Preprocesses the DSN/connection URI to safely URL-encode credentials if present.
+        
+        This prevents connection errors when passwords contain special characters like slashes.
+        """
+        if not dsn.startswith(("postgresql://", "postgres://")):
+            return dsn
+        if "@" not in dsn:
+            return dsn
+
+        try:
+            scheme, rest = dsn.split("://", 1)
+            credentials, host_port_db = rest.rsplit("@", 1)
+            
+            if ":" in credentials:
+                user, password = credentials.split(":", 1)
+                import urllib.parse
+                encoded_user = urllib.parse.quote(user, safe="")
+                encoded_password = urllib.parse.quote(password, safe="")
+                return f"{scheme}://{encoded_user}:{encoded_password}@{host_port_db}"
+            else:
+                import urllib.parse
+                encoded_user = urllib.parse.quote(credentials, safe="")
+                return f"{scheme}://{encoded_user}@{host_port_db}"
+        except Exception:
+            # Fall back to original DSN if parsing fails
+            return dsn
+
+    def __init__(self, dsn: Optional[str] = None):
+        """Initializes the PostgreSQL credential store.
 
         Args:
-            db_path: Path to SQLite file. Defaults to MITRA_DB_PATH or 'mitra.db'.
+            dsn: PostgreSQL connection string. Defaults to DATABASE_URL env var.
         """
-        self.db_path = db_path or os.environ.get("MITRA_DB_PATH", "mitra.db")
-        self._init_db()
+        raw_dsn = dsn or os.environ.get("DATABASE_URL")
+        if not raw_dsn:
+            raise ValueError(
+                "PostgreSQL connection string is required. "
+                "Set the DATABASE_URL environment variable or pass dsn to the constructor."
+            )
+        self.dsn = self._format_dsn(raw_dsn)
+        self._initialized = False
 
-    def _init_db(self) -> None:
-        """Creates the credentials table if it does not exist."""
+    async def _ensure_initialized(self) -> None:
+        """Lazily creates the credentials table if it does not exist."""
+        if self._initialized:
+            return
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
+            async with await psycopg.AsyncConnection.connect(self.dsn) as conn:
+                await conn.execute("""
                     CREATE TABLE IF NOT EXISTS credentials (
                         id TEXT PRIMARY KEY,
                         user_id TEXT NOT NULL,
@@ -70,22 +109,23 @@ class SQLiteOAuthCredentialStore(OAuthCredentialStore):
                         UNIQUE(user_id, provider)
                     )
                 """)
-                conn.commit()
+                await conn.commit()
+            self._initialized = True
         except Exception:
-            logger.exception("Failed to initialize SQLite database credentials table.")
+            logger.exception("Failed to initialize PostgreSQL database credentials table.")
             raise
 
     async def get_credential(self, user_id: str, provider: str) -> Optional[Dict[str, Any]]:
-        """Retrieves credentials from SQLite database."""
+        """Retrieves credentials from PostgreSQL database."""
+        await self._ensure_initialized()
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.execute(
+            async with await psycopg.AsyncConnection.connect(self.dsn, row_factory=dict_row) as conn:
+                cursor = await conn.execute(
                     "SELECT id, user_id, provider, access_token, refresh_token, expires_at, created_at, updated_at "
-                    "FROM credentials WHERE user_id = ? AND provider = ?",
+                    "FROM credentials WHERE user_id = %s AND provider = %s",
                     (user_id, provider.lower())
                 )
-                row = cursor.fetchone()
+                row = await cursor.fetchone()
                 if row:
                     return dict(row)
         except Exception:
@@ -101,39 +141,41 @@ class SQLiteOAuthCredentialStore(OAuthCredentialStore):
         refresh_token: str,
         expires_at: datetime,
     ) -> None:
-        """Saves or updates credentials in the SQLite database."""
+        """Saves or updates credentials in the PostgreSQL database."""
+        await self._ensure_initialized()
         now_str = datetime.now(timezone.utc).isoformat()
         expires_str = expires_at.isoformat()
         row_id = str(uuid.uuid4())
 
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute(
+            async with await psycopg.AsyncConnection.connect(self.dsn) as conn:
+                await conn.execute(
                     """
                     INSERT INTO credentials (id, user_id, provider, access_token, refresh_token, expires_at, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT(user_id, provider) DO UPDATE SET
-                        access_token = excluded.access_token,
-                        refresh_token = excluded.refresh_token,
-                        expires_at = excluded.expires_at,
-                        updated_at = excluded.updated_at
+                        access_token = EXCLUDED.access_token,
+                        refresh_token = EXCLUDED.refresh_token,
+                        expires_at = EXCLUDED.expires_at,
+                        updated_at = EXCLUDED.updated_at
                     """,
                     (row_id, user_id, provider.lower(), access_token, refresh_token, expires_str, now_str, now_str)
                 )
-                conn.commit()
+                await conn.commit()
         except Exception:
             logger.exception(f"Failed to save credential for user {user_id} and provider {provider}")
             raise
 
     async def delete_credential(self, user_id: str, provider: str) -> None:
-        """Deletes credentials from SQLite database."""
+        """Deletes credentials from PostgreSQL database."""
+        await self._ensure_initialized()
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute(
-                    "DELETE FROM credentials WHERE user_id = ? AND provider = ?",
+            async with await psycopg.AsyncConnection.connect(self.dsn) as conn:
+                await conn.execute(
+                    "DELETE FROM credentials WHERE user_id = %s AND provider = %s",
                     (user_id, provider.lower())
                 )
-                conn.commit()
+                await conn.commit()
         except Exception:
             logger.exception(f"Failed to delete credential for user {user_id} and provider {provider}")
             raise

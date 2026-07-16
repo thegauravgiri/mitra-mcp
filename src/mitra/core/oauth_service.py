@@ -143,10 +143,10 @@ def get_credential_service() -> CredentialService:
     if _shared_service is None:
         import os
         from mitra.core.crypto import TokenEncryption
-        from mitra.core.oauth_store import SQLiteOAuthCredentialStore
+        from mitra.core.oauth_store import PostgresOAuthCredentialStore
 
         encryption = TokenEncryption()
-        store = SQLiteOAuthCredentialStore()
+        store = PostgresOAuthCredentialStore()
         _shared_service = CredentialService(store, encryption)
 
         # Automatically register Google refresher if environment configuration is present

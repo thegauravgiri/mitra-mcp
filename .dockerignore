@@ -1,0 +1,33 @@
+# Exclude git repository
+.git
+.gitignore
+
+# Exclude virtual environments
+.venv
+venv
+ENV
+
+# Exclude local database files
+*.db
+*.db-journal
+
+# Exclude cache and python compiled files
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# Exclude local configuration and environment variables
+.env
+.env_example
+
+# Exclude IDE folders
+.vscode
+.idea
+.agents
+.gemini
+
+# Exclude built egg info or distribution packages
+src/*.egg-info
+dist
+build

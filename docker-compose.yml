@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  mitra:
+    build: .
+    container_name: mitra_server
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      - GOOGLE_ENCRYPTION_KEY=${GOOGLE_ENCRYPTION_KEY}
+      - USER_ID=${USER_ID}
+      - CLOCKIFY_API_KEY=${CLOCKIFY_API_KEY}
+      - CLOCKIFY_WORKSPACE_ID=${CLOCKIFY_WORKSPACE_ID}
+      - CLOCKIFY_PROJECT_ID=${CLOCKIFY_PROJECT_ID}
+      - WAKATIME_API_KEY=${WAKATIME_API_KEY}
