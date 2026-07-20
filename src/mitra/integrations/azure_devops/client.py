@@ -221,12 +221,20 @@ class AzureDevOpsClient:
     def generate_project_slug(project_name: str) -> str:
         """
         Generate a short project slug from the project name.
-        Takes the first word, lowercased.
+        Skips generic prefix tokens like 'gl' and 'we' to extract the primary project key.
 
-        Examples: 'Customer Portal' -> 'customer', 'API-Gateway' -> 'api'
+        Examples:
+            'gl-we-dhchat-backend' -> 'dhchat'
+            'Customer Portal' -> 'customer'
         """
-        parts = re.split(r"[\s\-_]+", project_name.strip())
-        slug = parts[0].lower() if parts else project_name.lower()
+        parts = [p.lower() for p in re.split(r"[\s\-_]+", project_name.strip()) if p]
+        ignored_prefixes = {"gl", "we", "app", "svc", "service", "prj", "project"}
+        target_part = None
+        for p in parts:
+            if p not in ignored_prefixes:
+                target_part = p
+                break
+        slug = target_part if target_part else (parts[0] if parts else project_name.lower())
         return re.sub(r"[^a-z0-9]", "", slug)
 
     @staticmethod

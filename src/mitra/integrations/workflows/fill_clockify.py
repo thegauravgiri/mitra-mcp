@@ -78,8 +78,26 @@ def register_tools(mcp) -> None:
         target_date = date or datetime.datetime.now().strftime("%Y-%m-%d")
         end_date = date_end or target_date
 
+        warnings = []
+        try:
+            dt = datetime.datetime.strptime(target_date, "%Y-%m-%d")
+            if dt.weekday() >= 5:  # Saturday = 5, Sunday = 6
+                warnings.append(
+                    f"Target date {target_date} is a weekend ({dt.strftime('%A')}). "
+                    "Clockify should ONLY be filled from Monday to Friday unless explicitly requested."
+                )
+        except ValueError:
+            pass
+
         result: Dict[str, Any] = {
             "date_range": {"start": target_date, "end": end_date},
+            "fill_rules": {
+                "allowed_days": "Monday to Friday",
+                "break_time_window": "13:30 - 15:00 (1:30 PM - 3:00 PM)",
+                "break_time_note": "Do not fill time from 1:30 PM to 3:00 PM unless there is a proven work record or explicitly specified by input.",
+                "verification_required": True,
+            },
+            "warnings": warnings,
             "wakatime_activity": None,
             "clockify_status": None,
             "azure_active_cards": None,
