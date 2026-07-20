@@ -209,3 +209,8 @@ class ClockifyClient:
             entries = [e for e in entries if e.get("projectId") == project_id]
 
         return [self.trim_time_entry(e) for e in entries]
+
+    async def delete_time_entry(self, workspace_id: str, time_entry_id: str) -> None:
+        """Deletes a specific time entry in a workspace."""
+        await self._request("DELETE", f"workspaces/{workspace_id}/time-entries/{time_entry_id}")
+

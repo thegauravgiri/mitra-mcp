@@ -185,3 +185,13 @@ def register_tools(mcp) -> None:
             "todays_entries": entries,  # Already trimmed by get_time_entries
             "todays_entry_count": len(entries),
         }
+
+    @mcp.tool()
+    async def clockify_delete_time_entry(
+        time_entry_id: str, workspace_id: Optional[str] = None, api_key: Optional[str] = None,
+    ) -> str:
+        """Deletes a specific Clockify time entry by ID."""
+        client = ClockifyClient(_resolve_api_key(api_key))
+        await client.delete_time_entry(_resolve_workspace_id(workspace_id), time_entry_id)
+        return f"Successfully deleted time entry {time_entry_id}"
+
