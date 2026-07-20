@@ -16,5 +16,11 @@
      - Proven work record exists in that time slot (e.g. WakaTime coding logs or Google Calendar meeting recorded between 13:30 and 15:00).
      - Explicitly specified by the user in the input prompt.
 
-4. **Mandatory User Verification**:
+4. **Auto-Card Creation for Unlinked & Agent-Generated Work**:
+   - If work was done on a project (evidenced by WakaTime coding activity or user input) OR if tasks are created/suggested by the agent itself to fill the daily 8-hour requirement, create a new Azure DevOps card first using `azure_devops_create_work_item`.
+   - Obtain the newly created card number and title, format the description (`<short_prefix>-<card_number>: <title>`), and ONLY THEN fill the Clockify entry.
+
+
+5. **Mandatory User Verification**:
    - ALWAYS ask and present the proposed fill plan to the user for verification/confirmation BEFORE creating any time entries in Clockify (`clockify_batch_create_entries`, `clockify_add_time_entry`, or `clockify_log_time_for_card`).
+

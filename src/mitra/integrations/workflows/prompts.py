@@ -86,11 +86,16 @@ For card management (create, update, search):
 3. **Break Time Restriction (1:30 PM to 3:00 PM)**: Do NOT log time from 1:30 PM to 3:00 PM (13:30 - 15:00) when filling for work, as that time is mandatory break time — UNLESS:
    - There is a proven work record during that time slot (e.g., WakaTime coding logs or Google Calendar event/meeting recorded between 13:30 and 15:00), OR
    - It is explicitly specified by the user in the prompt/input.
-4. **ALWAYS Ask Before Filling (User Verification)**: ALWAYS present the proposed time entries plan to the user and ask for confirmation/verification BEFORE executing entry creation (`clockify_batch_create_entries`, `clockify_add_time_entry`, or `clockify_log_time_for_card`).
-5. **Never chain atomic calls when a composite tool exists.** Use `clockify_fill_timesheet` instead of calling wakatime + clockify + azure separately.
-6. **Never call `clockify_get_user_info` or `clockify_list_workspaces` before other Clockify tools.** The workspace ID and user ID are resolved automatically.
-7. **Cache resolved info**: Don't re-fetch project lists, card details, or user info already obtained in the same session.
-8. **Batch all entries**: When filling multiple entries, use `clockify_batch_create_entries` to create them all at once.
+4. **Auto-Create Card for Unlinked & Agent-Generated Work**: If work was done on a project without an existing card, OR if tasks are created/suggested by the agent itself to complete the daily 8-hour work requirement:
+   - Create a new card in Azure DevOps for that work/task using `azure_devops_create_work_item`.
+   - Obtain the newly created card number and title.
+   - Format the description as `<short_prefix>-<card_number>: <title>` (e.g. `dhchat-123: Code review & testing`).
+   - ONLY THEN create the Clockify entry linked to the newly created card.
+5. **ALWAYS Ask Before Filling (User Verification)**: ALWAYS present the proposed time entries plan (including any new cards to be created) to the user and ask for confirmation/verification BEFORE executing card/entry creation.
+6. **Never chain atomic calls when a composite tool exists.** Use `clockify_fill_timesheet` instead of calling wakatime + clockify + azure separately.
+7. **Never call `clockify_get_user_info` or `clockify_list_workspaces` before other Clockify tools.** The workspace ID and user ID are resolved automatically.
+8. **Cache resolved info**: Don't re-fetch project lists, card details, or user info already obtained in the same session.
+9. **Batch all entries**: When filling multiple entries, use `clockify_batch_create_entries` to create them all at once.
 """
 
 

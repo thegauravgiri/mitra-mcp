@@ -21,7 +21,8 @@ CLOCKIFY_COMPONENT_RULES = """# Clockify Quick Reference
 1. **Fill Days**: ONLY fill Monday to Friday (weekdays). Skip Saturday and Sunday unless explicitly requested.
 2. **Project Card Format**: Description for project work MUST format as `<short_prefix>-<card_number>: <title>` (e.g. project `gl-we-dhchat-....` -> `dhchat-card_number: title`).
 3. **Break Window**: Do NOT fill work time between 1:30 PM and 3:00 PM (13:30 - 15:00) unless there is a proven work record (WakaTime activity / Google Calendar meeting) or explicitly specified in user input.
-4. **User Verification**: ALWAYS ask user for verification before creating entries in Clockify.
+4. **Auto-Create Card**: If work done on a project does not have an existing Azure DevOps card, OR if tasks are created/suggested by the agent itself to fill the 8-hour workday, create a new card first using `azure_devops_create_work_item`, get the card number and title, and ONLY THEN fill Clockify with `<short_prefix>-<card_number>: <title>`.
+5. **User Verification**: ALWAYS ask user for verification before creating cards or entries in Clockify.
 """
 
 
