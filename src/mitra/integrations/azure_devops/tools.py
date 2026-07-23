@@ -56,6 +56,7 @@ def register_tools(mcp) -> None:
         state: Optional[str] = None, tags: Optional[str] = None,
         priority: Optional[int] = None, area_path: Optional[str] = None,
         iteration_path: Optional[str] = None,
+        parent_id: Optional[int] = None,
         pat: Optional[str] = None, organization_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
@@ -63,6 +64,7 @@ def register_tools(mcp) -> None:
         work_item_type can be 'Task', 'Bug', 'User Story', 'Product Backlog Item', 'Epic', 'Feature', etc.
         tags should be semicolon-separated (e.g., 'frontend;urgent').
         priority ranges from 1 (highest) to 4 (lowest).
+        parent_id can be used to link this work item as a child to an existing parent work item ID.
         """
         resolved_pat, resolved_org = _resolve_azure_config(pat, organization_url)
         client = AzureDevOpsClient(resolved_pat, resolved_org)
@@ -70,6 +72,7 @@ def register_tools(mcp) -> None:
             project=project, work_item_type=work_item_type, title=title,
             description=description, assigned_to=assigned_to, state=state,
             tags=tags, priority=priority, area_path=area_path, iteration_path=iteration_path,
+            parent_id=parent_id,
         )
         return AzureDevOpsClient.format_work_item_summary(raw)
 
@@ -80,11 +83,13 @@ def register_tools(mcp) -> None:
         assigned_to: Optional[str] = None, state: Optional[str] = None,
         tags: Optional[str] = None, priority: Optional[int] = None,
         area_path: Optional[str] = None, iteration_path: Optional[str] = None,
+        parent_id: Optional[int] = None,
         pat: Optional[str] = None, organization_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Updates an existing Azure DevOps work item's details.
         Only the provided fields will be updated; other fields are preserved.
+        parent_id can be used to link this work item as a child to an existing parent work item ID.
         """
         resolved_pat, resolved_org = _resolve_azure_config(pat, organization_url)
         client = AzureDevOpsClient(resolved_pat, resolved_org)
@@ -92,6 +97,23 @@ def register_tools(mcp) -> None:
             project=project, work_item_id=work_item_id, title=title,
             description=description, assigned_to=assigned_to, state=state,
             tags=tags, priority=priority, area_path=area_path, iteration_path=iteration_path,
+            parent_id=parent_id,
+        )
+        return AzureDevOpsClient.format_work_item_summary(raw)
+
+    @mcp.tool()
+    async def azure_devops_add_relation(
+        project: str, work_item_id: int, relation_work_item_id: int, relation_type: str = "parent",
+        pat: Optional[str] = None, organization_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Adds a link/relation (such as parent or child) between two work items in an Azure DevOps project.
+        relation_type can be 'parent' (System.LinkTypes.Hierarchy-Reverse) or 'child' (System.LinkTypes.Hierarchy-Forward).
+        """
+        resolved_pat, resolved_org = _resolve_azure_config(pat, organization_url)
+        client = AzureDevOpsClient(resolved_pat, resolved_org)
+        raw = await client.add_work_item_relation(
+            project=project, work_item_id=work_item_id, relation_work_item_id=relation_work_item_id, relation_type=relation_type
         )
         return AzureDevOpsClient.format_work_item_summary(raw)
 

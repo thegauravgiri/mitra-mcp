@@ -94,6 +94,7 @@ class AzureDevOpsClient:
         state: Optional[str] = None, tags: Optional[str] = None,
         priority: Optional[int] = None, area_path: Optional[str] = None,
         iteration_path: Optional[str] = None,
+        parent_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Create a new work item (card) in a project."""
         url = f"{self.organization_url}/{project}/_apis/wit/workitems/${work_item_type}"
@@ -112,6 +113,20 @@ class AzureDevOpsClient:
             if value is not None:
                 operations.append({"op": "add", "path": path, "value": value})
 
+        if parent_id is not None:
+            parent_url = f"{self.organization_url}/_apis/wit/workitems/{parent_id}"
+            operations.append({
+                "op": "add",
+                "path": "/relations/-",
+                "value": {
+                    "rel": "System.LinkTypes.Hierarchy-Reverse",
+                    "url": parent_url,
+                    "attributes": {
+                        "comment": "Parent linkage"
+                    }
+                }
+            })
+
         return await self._request("POST", url, json_data=operations, use_patch_content_type=True)
 
     async def update_work_item(
@@ -120,6 +135,7 @@ class AzureDevOpsClient:
         assigned_to: Optional[str] = None, state: Optional[str] = None,
         tags: Optional[str] = None, priority: Optional[int] = None,
         area_path: Optional[str] = None, iteration_path: Optional[str] = None,
+        parent_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Update an existing work item's fields. Only provided fields are changed."""
         url = f"{self.organization_url}/{project}/_apis/wit/workitems/{work_item_id}"
@@ -139,6 +155,21 @@ class AzureDevOpsClient:
             for path, value in field_map.items()
             if value is not None
         ]
+
+        if parent_id is not None:
+            parent_url = f"{self.organization_url}/_apis/wit/workitems/{parent_id}"
+            operations.append({
+                "op": "add",
+                "path": "/relations/-",
+                "value": {
+                    "rel": "System.LinkTypes.Hierarchy-Reverse",
+                    "url": parent_url,
+                    "attributes": {
+                        "comment": "Parent linkage"
+                    }
+                }
+            })
+
         if not operations:
             raise ValueError("At least one field must be provided to update.")
 
@@ -147,6 +178,35 @@ class AzureDevOpsClient:
     async def update_work_item_state(self, project: str, work_item_id: int, state: str) -> Dict[str, Any]:
         """Update only the state/status of a work item."""
         return await self.update_work_item(project=project, work_item_id=work_item_id, state=state)
+
+    async def add_work_item_relation(
+        self, project: str, work_item_id: int, relation_work_item_id: int, relation_type: str = "parent"
+    ) -> Dict[str, Any]:
+        """Add a parent or child relation between two work items."""
+        url = f"{self.organization_url}/{project}/_apis/wit/workitems/{work_item_id}"
+        
+        if relation_type.lower() == "parent":
+            rel_name = "System.LinkTypes.Hierarchy-Reverse"
+        elif relation_type.lower() == "child":
+            rel_name = "System.LinkTypes.Hierarchy-Forward"
+        else:
+            rel_name = relation_type
+
+        parent_url = f"{self.organization_url}/_apis/wit/workitems/{relation_work_item_id}"
+        operations = [
+            {
+                "op": "add",
+                "path": "/relations/-",
+                "value": {
+                    "rel": rel_name,
+                    "url": parent_url,
+                    "attributes": {
+                        "comment": f"Linked via Mitra MCP as {relation_type}"
+                    }
+                }
+            }
+        ]
+        return await self._request("PATCH", url, json_data=operations, use_patch_content_type=True)
 
     async def query_work_items(self, project: str, wiql_query: str) -> List[Dict[str, Any]]:
         """Query work items using WIQL. Returns full details for matched items."""
