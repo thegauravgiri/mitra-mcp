@@ -247,8 +247,39 @@ def start(transport, host, port):
                 for context_var, token in tokens:
                     context_var.reset(token)
 
-        mcp_app = mcp.http_app() if hasattr(mcp, "http_app") else mcp.streamable_http_app()
-        app.mount("/", mcp_app)
+        # Add CORS middleware to allow cross-origin requests from remote & web MCP clients
+        from fastapi.middleware.cors import CORSMiddleware
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+        @app.get("/health")
+        async def health():
+            return {"status": "ok", "service": "mitra-mcp"}
+
+        @app.get("/")
+        async def root():
+            return RedirectResponse(url="/sse", status_code=307)
+
+        if hasattr(mcp, "http_app"):
+            try:
+                sse_app = mcp.http_app(transport="sse")
+                app.mount("/", sse_app)
+            except Exception as e:
+                click.echo(f"Warning mounting SSE transport: {e}", err=True)
+
+            try:
+                streamable_app = mcp.http_app(transport="streamable-http")
+                app.mount("/", streamable_app)
+            except Exception as e:
+                click.echo(f"Warning mounting Streamable-HTTP transport: {e}", err=True)
+        elif hasattr(mcp, "streamable_http_app"):
+            app.mount("/", mcp.streamable_http_app())
+
         uvicorn.run(app, host=host, port=port)
 
 if __name__ == "__main__":
