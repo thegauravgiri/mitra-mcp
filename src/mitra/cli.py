@@ -55,7 +55,10 @@ def start(transport, host, port):
 
         @contextlib.asynccontextmanager
         async def lifespan(app: FastAPI):
-            async with mcp.session_manager.run():
+            if hasattr(mcp, "session_manager"):
+                async with mcp.session_manager.run():
+                    yield
+            else:
                 yield
 
         app = FastAPI(title="Mitra Remote MCP Server", lifespan=lifespan)
@@ -244,7 +247,8 @@ def start(transport, host, port):
                 for context_var, token in tokens:
                     context_var.reset(token)
 
-        app.mount("/", mcp.streamable_http_app())
+        mcp_app = mcp.http_app() if hasattr(mcp, "http_app") else mcp.streamable_http_app()
+        app.mount("/", mcp_app)
         uvicorn.run(app, host=host, port=port)
 
 if __name__ == "__main__":
