@@ -54,7 +54,8 @@ def register_tools(mcp) -> None:
         project: str, work_item_type: str, title: str,
         description: Optional[str] = None, assigned_to: Optional[str] = None,
         state: Optional[str] = None, tags: Optional[str] = None,
-        priority: Optional[int] = None, area_path: Optional[str] = None,
+        priority: Optional[int] = None, effort: Optional[float] = None,
+        remaining_work: Optional[float] = None, area_path: Optional[str] = None,
         iteration_path: Optional[str] = None,
         parent_id: Optional[int] = None,
         pat: Optional[str] = None, organization_url: Optional[str] = None,
@@ -64,6 +65,7 @@ def register_tools(mcp) -> None:
         work_item_type can be 'Task', 'Bug', 'User Story', 'Product Backlog Item', 'Epic', 'Feature', etc.
         tags should be semicolon-separated (e.g., 'frontend;urgent').
         priority ranges from 1 (highest) to 4 (lowest).
+        effort and remaining_work can be used for planning fields on Scrum/Agile work items.
         parent_id can be used to link this work item as a child to an existing parent work item ID.
         """
         resolved_pat, resolved_org = _resolve_azure_config(pat, organization_url)
@@ -71,7 +73,8 @@ def register_tools(mcp) -> None:
         raw = await client.create_work_item(
             project=project, work_item_type=work_item_type, title=title,
             description=description, assigned_to=assigned_to, state=state,
-            tags=tags, priority=priority, area_path=area_path, iteration_path=iteration_path,
+            tags=tags, priority=priority, effort=effort, remaining_work=remaining_work,
+            area_path=area_path, iteration_path=iteration_path,
             parent_id=parent_id,
         )
         return AzureDevOpsClient.format_work_item_summary(raw)
@@ -82,6 +85,7 @@ def register_tools(mcp) -> None:
         title: Optional[str] = None, description: Optional[str] = None,
         assigned_to: Optional[str] = None, state: Optional[str] = None,
         tags: Optional[str] = None, priority: Optional[int] = None,
+        effort: Optional[float] = None, remaining_work: Optional[float] = None,
         area_path: Optional[str] = None, iteration_path: Optional[str] = None,
         parent_id: Optional[int] = None,
         pat: Optional[str] = None, organization_url: Optional[str] = None,
@@ -96,7 +100,8 @@ def register_tools(mcp) -> None:
         raw = await client.update_work_item(
             project=project, work_item_id=work_item_id, title=title,
             description=description, assigned_to=assigned_to, state=state,
-            tags=tags, priority=priority, area_path=area_path, iteration_path=iteration_path,
+            tags=tags, priority=priority, effort=effort, remaining_work=remaining_work,
+            area_path=area_path, iteration_path=iteration_path,
             parent_id=parent_id,
         )
         return AzureDevOpsClient.format_work_item_summary(raw)
@@ -169,3 +174,76 @@ def register_tools(mcp) -> None:
             project=project, state=state, work_item_type=work_item_type, top=top,
         )
         return [AzureDevOpsClient.format_work_item_summary(item) for item in raw_items]
+
+    @mcp.tool()
+    async def azure_devops_create_delivery_plan(
+        project: str, name: str,
+        description: Optional[str] = None,
+        type: str = "deliveryTimelineView",
+        team_settings: Optional[List[Dict[str, Any]]] = None,
+        criteria: Optional[List[Dict[str, Any]]] = None,
+        card_fields: Optional[List[str]] = None,
+        pat: Optional[str] = None, organization_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Creates a new Delivery Plan in an Azure DevOps project.
+        Allows setting plan name, description, team settings (team IDs), filtering criteria, and visible card fields.
+        """
+        resolved_pat, resolved_org = _resolve_azure_config(pat, organization_url)
+        client = AzureDevOpsClient(resolved_pat, resolved_org)
+        raw = await client.create_delivery_plan(
+            project=project, name=name, description=description, type_=type,
+            team_settings=team_settings, criteria=criteria, card_fields=card_fields,
+        )
+        return AzureDevOpsClient.format_delivery_plan_summary(raw)
+
+    @mcp.tool()
+    async def azure_devops_list_delivery_plans(
+        project: str,
+        pat: Optional[str] = None, organization_url: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Lists all Delivery Plans configured in an Azure DevOps project.
+        """
+        resolved_pat, resolved_org = _resolve_azure_config(pat, organization_url)
+        client = AzureDevOpsClient(resolved_pat, resolved_org)
+        raw_plans = await client.list_delivery_plans(project)
+        return [AzureDevOpsClient.format_delivery_plan_summary(p) for p in raw_plans]
+
+    @mcp.tool()
+    async def azure_devops_get_delivery_plan(
+        project: str, plan_id: str, include_timeline: bool = False,
+        pat: Optional[str] = None, organization_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Fetches details and configuration of a specific Delivery Plan by its ID.
+        If include_timeline is True, also retrieves current delivery timeline work item data.
+        """
+        resolved_pat, resolved_org = _resolve_azure_config(pat, organization_url)
+        client = AzureDevOpsClient(resolved_pat, resolved_org)
+        raw = await client.get_delivery_plan(project, plan_id, include_timeline=include_timeline)
+        return AzureDevOpsClient.format_delivery_plan_summary(raw)
+
+    @mcp.tool()
+    async def azure_devops_link_pbi(
+        project: str, pbi_id: int,
+        parent_id: Optional[int] = None,
+        iteration_path: Optional[str] = None,
+        start_date: Optional[str] = None,
+        target_date: Optional[str] = None,
+        comment: Optional[str] = None,
+        pat: Optional[str] = None, organization_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Links a Product Backlog Item (PBI) to a parent work item (Feature/Epic/etc.)
+        and/or updates its schedule fields (iteration path, start date, target date) so it is properly positioned on Delivery Plans.
+        """
+        resolved_pat, resolved_org = _resolve_azure_config(pat, organization_url)
+        client = AzureDevOpsClient(resolved_pat, resolved_org)
+        raw = await client.link_pbi(
+            project=project, pbi_id=pbi_id, parent_id=parent_id,
+            iteration_path=iteration_path, start_date=start_date,
+            target_date=target_date, comment=comment,
+        )
+        return AzureDevOpsClient.format_work_item_summary(raw)
+

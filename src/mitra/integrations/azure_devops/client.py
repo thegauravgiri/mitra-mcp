@@ -92,7 +92,8 @@ class AzureDevOpsClient:
         self, project: str, work_item_type: str, title: str,
         description: Optional[str] = None, assigned_to: Optional[str] = None,
         state: Optional[str] = None, tags: Optional[str] = None,
-        priority: Optional[int] = None, area_path: Optional[str] = None,
+        priority: Optional[int] = None, effort: Optional[float] = None,
+        remaining_work: Optional[float] = None, area_path: Optional[str] = None,
         iteration_path: Optional[str] = None,
         parent_id: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -106,6 +107,8 @@ class AzureDevOpsClient:
             "/fields/System.State": state,
             "/fields/System.Tags": tags,
             "/fields/Microsoft.VSTS.Common.Priority": priority,
+            "/fields/Microsoft.VSTS.Scheduling.Effort": effort,
+            "/fields/Microsoft.VSTS.Scheduling.RemainingWork": remaining_work,
             "/fields/System.AreaPath": area_path,
             "/fields/System.IterationPath": iteration_path,
         }
@@ -134,6 +137,7 @@ class AzureDevOpsClient:
         title: Optional[str] = None, description: Optional[str] = None,
         assigned_to: Optional[str] = None, state: Optional[str] = None,
         tags: Optional[str] = None, priority: Optional[int] = None,
+        effort: Optional[float] = None, remaining_work: Optional[float] = None,
         area_path: Optional[str] = None, iteration_path: Optional[str] = None,
         parent_id: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -147,6 +151,8 @@ class AzureDevOpsClient:
             "/fields/System.State": state,
             "/fields/System.Tags": tags,
             "/fields/Microsoft.VSTS.Common.Priority": priority,
+            "/fields/Microsoft.VSTS.Scheduling.Effort": effort,
+            "/fields/Microsoft.VSTS.Scheduling.RemainingWork": remaining_work,
             "/fields/System.AreaPath": area_path,
             "/fields/System.IterationPath": iteration_path,
         }
@@ -254,7 +260,128 @@ class AzureDevOpsClient:
             return []
         return await self._get_work_items_batch(project, [wi["id"] for wi in work_items])
 
+    # --- Delivery Plan Operations ---
+
+    async def list_delivery_plans(self, project: str) -> List[Dict[str, Any]]:
+        """List all delivery plans in a project."""
+        url = f"{self.organization_url}/{project}/_apis/work/plans"
+        result = await self._request("GET", url, params={"api-version": "7.0-preview.1"})
+        return result.get("value", []) if isinstance(result, dict) else []
+
+    async def get_delivery_plan(self, project: str, plan_id: str, include_timeline: bool = False) -> Dict[str, Any]:
+        """Fetch details and optional timeline view for a delivery plan."""
+        url = f"{self.organization_url}/{project}/_apis/work/plans/{plan_id}"
+        plan = await self._request("GET", url, params={"api-version": "7.0-preview.1"})
+        if include_timeline and isinstance(plan, dict):
+            timeline_url = f"{self.organization_url}/{project}/_apis/work/plans/{plan_id}/deliverytimeline"
+            try:
+                timeline = await self._request("GET", timeline_url, params={"api-version": "7.0-preview.1"})
+                plan["timeline"] = timeline
+            except Exception as e:
+                logger.warning(f"Could not fetch delivery timeline for plan {plan_id}: {e}")
+        return plan
+
+    async def create_delivery_plan(
+        self,
+        project: str,
+        name: str,
+        description: Optional[str] = None,
+        type_: str = "deliveryTimelineView",
+        team_settings: Optional[List[Dict[str, Any]]] = None,
+        criteria: Optional[List[Dict[str, Any]]] = None,
+        card_fields: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Create a new delivery plan in an Azure DevOps project."""
+        url = f"{self.organization_url}/{project}/_apis/work/plans"
+        default_fields = [
+            "System.Title",
+            "System.AssignedTo",
+            "System.State",
+            "Microsoft.VSTS.Scheduling.Effort",
+        ]
+        fields_to_use = card_fields if card_fields is not None else default_fields
+        payload = {
+            "name": name,
+            "description": description or "",
+            "type": type_,
+            "properties": {
+                "cardSettings": {
+                    "fields": [{"fieldId": f} for f in fields_to_use]
+                },
+                "markers": {"markers": []},
+                "criteria": criteria or [],
+                "teamSettings": {
+                    "teams": team_settings or []
+                }
+            }
+        }
+        return await self._request("POST", url, json_data=payload, params={"api-version": "7.0-preview.1"})
+
+    async def link_pbi(
+        self,
+        project: str,
+        pbi_id: int,
+        parent_id: Optional[int] = None,
+        iteration_path: Optional[str] = None,
+        start_date: Optional[str] = None,
+        target_date: Optional[str] = None,
+        comment: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Link a Product Backlog Item (PBI) to a parent work item and/or update its schedule
+        (iteration path, start date, target date) so it aligns with Delivery Plans.
+        """
+        url = f"{self.organization_url}/{project}/_apis/wit/workitems/{pbi_id}"
+        operations = []
+
+        field_map = {
+            "/fields/System.IterationPath": iteration_path,
+            "/fields/Microsoft.VSTS.Scheduling.StartDate": start_date,
+            "/fields/Microsoft.VSTS.Scheduling.TargetDate": target_date,
+        }
+        for path, val in field_map.items():
+            if val is not None:
+                operations.append({"op": "add", "path": path, "value": val})
+
+        if parent_id is not None:
+            parent_url = f"{self.organization_url}/_apis/wit/workitems/{parent_id}"
+            operations.append({
+                "op": "add",
+                "path": "/relations/-",
+                "value": {
+                    "rel": "System.LinkTypes.Hierarchy-Reverse",
+                    "url": parent_url,
+                    "attributes": {
+                        "comment": comment or f"Linked PBI {pbi_id} to parent {parent_id} for Delivery Plan"
+                    }
+                }
+            })
+
+        if not operations:
+            raise ValueError("At least one parameter (parent_id, iteration_path, start_date, or target_date) must be provided.")
+
+        return await self._request("PATCH", url, json_data=operations, use_patch_content_type=True)
+
     # --- Utility Methods ---
+
+    @staticmethod
+    def format_delivery_plan_summary(plan: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract a clean summary from a raw Azure DevOps delivery plan response."""
+        if not isinstance(plan, dict):
+            return {}
+        properties = plan.get("properties", {})
+        return {
+            "id": plan.get("id"),
+            "name": plan.get("name"),
+            "description": plan.get("description"),
+            "type": plan.get("type"),
+            "created_date": plan.get("createdDate"),
+            "modified_date": plan.get("modifiedDate"),
+            "revision": plan.get("revision"),
+            "url": plan.get("url"),
+            "properties": properties,
+            "timeline": plan.get("timeline"),
+        }
 
     @staticmethod
     def format_work_item_summary(work_item: Dict[str, Any]) -> Dict[str, Any]:
@@ -304,3 +431,4 @@ class AzureDevOpsClient:
         Format: <project-slug>-<card_no>: <card_title>
         """
         return f"{project_slug}-{work_item_id}: {title}"
+

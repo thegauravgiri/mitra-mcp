@@ -10,6 +10,12 @@ AZURE_DEVOPS_COMPONENT_RULES = """# Azure DevOps Quick Reference
 - `azure_devops_search_work_items(project, ...)` — Search cards by filters.
 - `azure_devops_list_work_items_by_state(project, state)` — List cards by state.
 
+## Delivery Plans & PBI Linking Tools:
+- `azure_devops_create_delivery_plan(project, name, ...)` — Create a delivery plan.
+- `azure_devops_list_delivery_plans(project)` — List all delivery plans in a project.
+- `azure_devops_get_delivery_plan(project, plan_id, include_timeline)` — Get plan details/timeline.
+- `azure_devops_link_pbi(project, pbi_id, parent_id, start_date, target_date, ...)` — Link a PBI to a parent work item & schedule dates/iterations for Delivery Plans.
+
 ## Project Tools:
 - `azure_devops_list_projects` — List org projects (only when user asks).
 
