@@ -264,6 +264,13 @@ def start(transport, host, port):
                 """
                 return HTMLResponse(html_content)
 
+        # ── OAuth authorization-server proxy (DCR + authorize + token) ─────────────────
+        # Makes Mitra itself the OAuth authorization server from the MCP client's point
+        # of view, so "connect" is just server URL -> Google consent screen -> done,
+        # with no manual client id entry. See core/authserver_routes.py for why.
+        from mitra.core.authserver_routes import router as authserver_router
+        app.include_router(authserver_router)
+
         # ── Key vault web app (add / list / delete per-service API keys) ───────────────
         # MVC slice living in mitra.webapp: models in service_config.py, views as
         # Jinja2 templates, controller as this router. See mitra/webapp/__init__.py.
@@ -357,7 +364,7 @@ def start(transport, host, port):
         async def protected_resource_metadata(request: Request):
             return JSONResponse({
                 "resource": _resource_uri(request),
-                "authorization_servers": ["https://accounts.google.com"],
+                "authorization_servers": [str(request.base_url).rstrip("/")],
                 "bearer_methods_supported": ["header"],
             })
 
@@ -385,7 +392,7 @@ def start(transport, host, port):
                 )
 
             try:
-                claims = token_auth.validate_bearer_token(token)
+                claims = token_auth.validate_bearer_token(token, resource_uri=_resource_uri(request))
             except token_auth.TokenValidationError as exc:
                 logger.warning("Bearer token rejected: %s", exc)
                 metadata_url = str(request.base_url).rstrip("/") + RESOURCE_METADATA_PATH
