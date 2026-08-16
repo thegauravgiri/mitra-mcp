@@ -391,22 +391,37 @@ def start(transport, host, port):
                     headers={"WWW-Authenticate": f'Bearer resource_metadata="{metadata_url}"'},
                 )
 
-            try:
-                claims = token_auth.validate_bearer_token(token, resource_uri=_resource_uri(request))
-            except token_auth.TokenValidationError as exc:
-                logger.warning("Bearer token rejected: %s", exc)
-                metadata_url = str(request.base_url).rstrip("/") + RESOURCE_METADATA_PATH
-                return JSONResponse(
-                    {"error": "invalid_token", "error_description": str(exc)},
-                    status_code=401,
-                    headers={
-                        "WWW-Authenticate": (
-                            f'Bearer resource_metadata="{metadata_url}", error="invalid_token"'
-                        )
-                    },
-                )
+            from mitra.core.pat_store import TOKEN_PREFIX, get_pat_store
 
-            resolved_user_id = claims.get("email") or claims["sub"]
+            if token.startswith(TOKEN_PREFIX):
+                resolved_user_id = await get_pat_store().resolve_user_id(token)
+                if not resolved_user_id:
+                    metadata_url = str(request.base_url).rstrip("/") + RESOURCE_METADATA_PATH
+                    return JSONResponse(
+                        {"error": "invalid_token", "error_description": "token is invalid or revoked"},
+                        status_code=401,
+                        headers={
+                            "WWW-Authenticate": (
+                                f'Bearer resource_metadata="{metadata_url}", error="invalid_token"'
+                            )
+                        },
+                    )
+            else:
+                try:
+                    claims = token_auth.validate_bearer_token(token, resource_uri=_resource_uri(request))
+                except token_auth.TokenValidationError as exc:
+                    logger.warning("Bearer token rejected: %s", exc)
+                    metadata_url = str(request.base_url).rstrip("/") + RESOURCE_METADATA_PATH
+                    return JSONResponse(
+                        {"error": "invalid_token", "error_description": str(exc)},
+                        status_code=401,
+                        headers={
+                            "WWW-Authenticate": (
+                                f'Bearer resource_metadata="{metadata_url}", error="invalid_token"'
+                            )
+                        },
+                    )
+                resolved_user_id = claims.get("email") or claims["sub"]
             logger.info("Authenticated MCP request for user %s", resolved_user_id)
             reset_token = auth_context.CURRENT_USER_ID.set(resolved_user_id)
             try:

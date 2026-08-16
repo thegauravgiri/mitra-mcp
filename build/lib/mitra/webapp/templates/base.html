@@ -14,6 +14,7 @@
       <div class="session">
         <nav class="tabs">
           <a href="/vault" class="{{ 'active' if active_tab == 'keys' else '' }}">Keys</a>
+          <a href="/vault/tokens" class="{{ 'active' if active_tab == 'tokens' else '' }}">Tokens</a>
           <a href="/vault/connect" class="{{ 'active' if active_tab == 'connect' else '' }}">Connect</a>
         </nav>
         <span class="who">{{ user_id }} &middot; <a href="/vault/logout">Sign out</a></span>

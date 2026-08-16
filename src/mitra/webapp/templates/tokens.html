@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+
+{% if new_token %}
+<h2 class="section-title">New token</h2>
+<div class="card stack-card">
+  <div class="stack-item">
+    <p><strong>Copy this now</strong> — it won't be shown again. Anyone with this token can act as you against this MCP server.</p>
+    <pre class="code-block">{{ new_token }}</pre>
+  </div>
+</div>
+{% endif %}
+
+<h2 class="section-title">MCP access tokens</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Label</th><th>Token</th><th>Created</th><th>Last used</th><th></th></tr></thead>
+    <tbody>
+      {% for t in tokens %}
+      <tr>
+        <td class="service-name">{{ t.label or "Unlabeled" }}</td>
+        <td class="key-mask">&bull;&bull;&bull;&bull; {{ t.last4 }}</td>
+        <td>{{ t.created_at.split("T")[0] }}</td>
+        <td>{{ t.last_used_at.split("T")[0] if t.last_used_at else "Never" }}</td>
+        <td class="col-actions">
+          <form class="inline" method="post" action="/vault/tokens/{{ t.id }}/revoke"
+                data-confirm="Revoke this token? Any client using it will stop working immediately.">
+            <button type="submit" class="btn btn-danger">Revoke</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not tokens %}
+        <tr><td colspan="5" class="empty-state">No access tokens yet — generate one below.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<h2 class="section-title">Generate a new token</h2>
+<form class="card form-card" method="post" action="/vault/tokens">
+  <div class="field">
+    <label for="label">Label</label>
+    <input id="label" name="label" placeholder="e.g. laptop, CI pipeline" />
+    <span class="hint">Optional — helps you tell tokens apart later.</span>
+  </div>
+  <button type="submit" class="btn btn-primary">Generate token</button>
+</form>
+
+<h2 class="section-title">Using this token</h2>
+<div class="card stack-card">
+  <div class="stack-item">
+    <p>For MCP clients that don't support OAuth sign-in yet, send it as a header instead:</p>
+    <pre class="code-block">Authorization: Bearer &lt;token&gt;</pre>
+  </div>
+  <div class="stack-item">
+    <p>This authenticates as you, the same as signing in with Google — it doesn't expire on its own, so revoke it here if it's ever exposed.</p>
+  </div>
+</div>
+
+{% endblock %}

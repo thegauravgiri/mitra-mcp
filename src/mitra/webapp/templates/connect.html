@@ -31,10 +31,11 @@
 
   <div class="stack-item">
     <p>
-      <strong>Client doesn't support OAuth yet?</strong> You can still fall back to
-      the legacy per-service headers instead of signing in — but then your API keys
-      live in the client config again, which is exactly what this vault replaces.
-      Prefer the OAuth path above whenever your client supports it.
+      <strong>Client doesn't support OAuth yet?</strong> Generate a personal
+      <a href="/vault/tokens">access token</a> instead and send it as
+      <code>Authorization: Bearer &lt;token&gt;</code> — prefer the OAuth path above
+      whenever your client supports it, since a token can be lost or leaked and
+      keeps working until you revoke it.
     </p>
   </div>
 </div>

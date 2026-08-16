@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from mitra.core import token_auth, vault_validators
 from mitra.core.oauth_service import get_credential_service
+from mitra.core.pat_store import get_pat_store
 from mitra.core.vault_service import get_vault_service
 from mitra.webapp import session as session_utils
 from mitra.webapp.service_config import SERVICES
@@ -54,6 +55,24 @@ async def _vault_response(request: Request, user_id: str, error: Optional[str] =
             "calendar_connected": calendar_cred is not None,
             "calendar_connected_at": (calendar_cred or {}).get("updated_at"),
             "calendar_connect_url": "/auth/google/start?user_id=" + urllib.parse.quote(user_id),
+        },
+        status_code=status_code,
+    )
+
+
+async def _tokens_response(
+    request: Request, user_id: str, new_token: Optional[str] = None, error: Optional[str] = None, status_code: int = 200
+):
+    tokens = await get_pat_store().list_tokens(user_id)
+    return templates.TemplateResponse(
+        request,
+        "tokens.html",
+        {
+            "user_id": user_id,
+            "active_tab": "tokens",
+            "tokens": tokens,
+            "new_token": new_token,
+            "error": error,
         },
         status_code=status_code,
     )
@@ -213,6 +232,32 @@ async def vault_delete_key(request: Request, service: str):
         return RedirectResponse("/vault/login")
     await get_vault_service().delete_key(user_id, service)
     return RedirectResponse("/vault", status_code=303)
+
+
+@router.get("/vault/tokens", response_class=HTMLResponse)
+async def vault_tokens(request: Request):
+    user_id = _require_session(request)
+    if not user_id:
+        return RedirectResponse("/vault/login")
+    return await _tokens_response(request, user_id)
+
+
+@router.post("/vault/tokens")
+async def vault_create_token(request: Request, label: str = Form("")):
+    user_id = _require_session(request)
+    if not user_id:
+        return RedirectResponse("/vault/login")
+    raw_token = await get_pat_store().create_token(user_id, label=label or None)
+    return await _tokens_response(request, user_id, new_token=raw_token)
+
+
+@router.post("/vault/tokens/{token_id}/revoke")
+async def vault_revoke_token(request: Request, token_id: str):
+    user_id = _require_session(request)
+    if not user_id:
+        return RedirectResponse("/vault/login")
+    await get_pat_store().revoke_token(user_id, token_id)
+    return RedirectResponse("/vault/tokens", status_code=303)
 
 
 @router.post("/vault/calendar/disconnect")

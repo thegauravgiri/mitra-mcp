@@ -49,6 +49,36 @@ def _error_page(title: str, message: str, status_code: int = 400) -> HTMLRespons
     return HTMLResponse(f"<h3>{title}</h3><p>{message}</p>", status_code=status_code)
 
 
+_LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+
+
+def _redirect_uri_allowed(candidate: str, registered: list) -> bool:
+    """Matches a redirect_uri against the client's registered list.
+
+    Exact match, except for loopback redirects (http://127.0.0.1:<port>/...),
+    where the port is allowed to differ — native/CLI OAuth clients (VSCode,
+    Claude Desktop) commonly bind a fresh ephemeral port per connection
+    attempt, per RFC 8252 section 7.3, so pinning the exact port from the
+    original Dynamic Client Registration call would break every reconnect.
+    """
+    if candidate in registered:
+        return True
+
+    parsed = urllib.parse.urlparse(candidate)
+    if parsed.hostname not in _LOOPBACK_HOSTS:
+        return False
+
+    for reg in registered:
+        reg_parsed = urllib.parse.urlparse(reg)
+        if (
+            reg_parsed.hostname in _LOOPBACK_HOSTS
+            and reg_parsed.scheme == parsed.scheme
+            and reg_parsed.path == parsed.path
+        ):
+            return True
+    return False
+
+
 def _verify_pkce(code_verifier: str, code_challenge: str, method: str) -> bool:
     if method != "S256":
         return False
@@ -122,7 +152,7 @@ async def authorize(
     client = await store.get_client(client_id)
     if not client:
         return _error_page("Unknown client", "This client is not registered.", 400)
-    if redirect_uri not in client["redirect_uris"]:
+    if not _redirect_uri_allowed(redirect_uri, client["redirect_uris"]):
         return _error_page("Invalid redirect_uri", "redirect_uri does not match the registered client.", 400)
 
     google_client_id = os.environ.get("GOOGLE_CLIENT_ID")
