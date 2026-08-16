@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="section-title">Connect an MCP client</h2>
+
+<div class="card stack-card">
+  <div class="stack-item">
+    <p>Point your MCP client at this server's endpoint:</p>
+    <pre class="code-block">{{ mcp_url }}</pre>
+  </div>
+
+  <div class="stack-item">
+    <p>
+      If your client supports the MCP authorization spec (OAuth 2.1), it discovers
+      sign-in automatically from this URL — sign in with the same Google account you
+      used here, and no keys need to go into your client config at all:
+    </p>
+    <pre class="code-block">{{ metadata_url }}</pre>
+  </div>
+
+  <div class="stack-item">
+    <p>Example configuration, for clients that take a raw JSON server entry (e.g. Claude Desktop's <code>claude_desktop_config.json</code>):</p>
+    <pre class="code-block">{
+  "mcpServers": {
+    "mitra": {
+      "url": "{{ mcp_url }}"
+    }
+  }
+}</pre>
+  </div>
+
+  <div class="stack-item">
+    <p>
+      <strong>Client doesn't support OAuth yet?</strong> You can still fall back to
+      the legacy per-service headers instead of signing in — but then your API keys
+      live in the client config again, which is exactly what this vault replaces.
+      Prefer the OAuth path above whenever your client supports it.
+    </p>
+  </div>
+</div>
+
+{% endblock %}

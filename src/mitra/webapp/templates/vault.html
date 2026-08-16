@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+
+<h2 class="section-title">Connected services</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Service</th><th>Key</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for svc in services %}
+        {% set k = keys_by_service.get(svc.key) %}
+        {% if k %}
+        <tr>
+          <td class="service-name">{{ svc.label }}</td>
+          <td class="key-mask">&bull;&bull;&bull;&bull; {{ k.last4 }}</td>
+          <td>
+            {% if k.last_validated_at %}
+              <span class="pill good">Validated</span>
+            {% else %}
+              <span class="pill warn">Unvalidated</span>
+            {% endif %}
+          </td>
+          <td class="col-actions">
+            <form class="inline" method="post" action="/vault/keys/{{ svc.key }}/delete"
+                  data-confirm="Remove the {{ svc.label }} key?">
+              <button type="submit" class="btn btn-danger">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+      {% if not keys_by_service %}
+        <tr><td colspan="4" class="empty-state">No services connected yet — add one below.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<h2 class="section-title">Add a service</h2>
+<form class="card form-card" method="post" action="/vault/keys">
+  <div class="field">
+    <label for="service">Service</label>
+    <select id="service" name="service">
+      {% for svc in services %}<option value="{{ svc.key }}">{{ svc.label }}</option>{% endfor %}
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="secret" id="secret-label">API key / personal access token</label>
+    <input id="secret" name="secret" type="password" required autocomplete="off" />
+    <span class="hint">Checked against the provider before saving — nothing bad gets stored.</span>
+  </div>
+
+  {% for svc in services %}
+    {% for f in svc.extra_fields %}
+    <div class="field extra-field" data-extra-for="{{ svc.key }}" hidden>
+      <label for="{{ f.name }}">{{ f.label }}</label>
+      <input id="{{ f.name }}" name="{{ f.name }}" placeholder="{{ f.placeholder }}"
+             {% if f.required %}data-required-for="{{ svc.key }}"{% endif %} />
+      {% if not f.required %}<span class="hint">Optional.</span>{% endif %}
+    </div>
+    {% endfor %}
+  {% endfor %}
+
+  <button type="submit" class="btn btn-primary">Save key</button>
+</form>
+
+<script>
+  /* Secret-field labels differ per service (API key vs. PAT) — small enough to inline. */
+  window.MITRA_SECRET_LABELS = {
+    {% for svc in services %}"{{ svc.key }}": "{{ svc.secret_label }}"{{ "," if not loop.last }}{% endfor %}
+  };
+</script>
+{% endblock %}

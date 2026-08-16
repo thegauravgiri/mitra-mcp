@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Mitra Key Vault{% endblock %}</title>
+  <link rel="stylesheet" href="/vault/static/vault.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="page-head">
+      <h1><a href="/vault" class="brand">Mitra key vault</a></h1>
+      {% if user_id %}
+      <div class="session">
+        <nav class="tabs">
+          <a href="/vault" class="{{ 'active' if active_tab == 'keys' else '' }}">Keys</a>
+          <a href="/vault/connect" class="{{ 'active' if active_tab == 'connect' else '' }}">Connect</a>
+        </nav>
+        <span class="who">{{ user_id }} &middot; <a href="/vault/logout">Sign out</a></span>
+      </div>
+      {% endif %}
+    </header>
+    {% block content %}{% endblock %}
+  </div>
+  <script src="/vault/static/vault.js"></script>
+</body>
+</html>
