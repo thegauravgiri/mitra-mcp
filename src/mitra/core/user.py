@@ -28,19 +28,26 @@ async def get_current_user_id() -> str:
     """Resolve the currently authenticated user's ID (expected to be their email address).
 
     Checks:
-    1. The 'x-user-id' ContextVar (set by client header).
-    2. The 'USER_ID' environment variable.
-    3. The authenticated user's email address from Clockify (if configured).
+    1. The validated OAuth identity (set by the resource-server auth middleware).
+    2. The 'x-user-id' ContextVar (set by client header, legacy mode).
+    3. The 'USER_ID' environment variable.
+    4. The authenticated user's email address from Clockify (if configured).
 
     Raises:
         ValueError: If no user context/email can be established.
     """
-    # 1. Direct ContextVar
+    # 1. Validated OAuth identity
+    from mitra.core.auth_context import get_current_user_id as get_oauth_user_id
+    oauth_uid = get_oauth_user_id()
+    if oauth_uid:
+        return oauth_uid
+
+    # 2. Direct ContextVar
     uid = request_user_id.get()
     if uid:
         return uid
 
-    # 2. Environment Variable
+    # 3. Environment Variable
     import os
     env_uid = os.environ.get("USER_ID")
     if env_uid:
