@@ -277,45 +277,202 @@ def start(transport, host, port):
             return _unsign(cookie) if cookie else None
 
         VAULT_SERVICES = ("clockify", "wakatime", "azure_devops")
+        VAULT_SERVICE_LABELS = {
+            "clockify": "Clockify",
+            "wakatime": "WakaTime",
+            "azure_devops": "Azure DevOps",
+        }
+
+        VAULT_PAGE_STYLE = """
+            :root {
+                color-scheme: light dark;
+                --bg: #f4f5f7;
+                --surface: #ffffff;
+                --border: #e2e4e9;
+                --ink: #1c1e26;
+                --ink-dim: #666b78;
+                --accent: #0f6d63;
+                --accent-ink: #ffffff;
+                --danger: #b3261e;
+                --danger-soft: #fbeae9;
+                --warn-soft: #fdf3e0;
+                --warn-ink: #7a5100;
+                --good-soft: #e6f4ef;
+                --good-ink: #0f6d63;
+                --shadow: 0 1px 2px rgba(20,20,30,0.04), 0 6px 16px rgba(20,20,30,0.06);
+            }
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --bg: #14161b;
+                    --surface: #1c1f26;
+                    --border: #2c303a;
+                    --ink: #e7e9ee;
+                    --ink-dim: #9a9fac;
+                    --accent: #3fb3a4;
+                    --accent-ink: #06201c;
+                    --danger: #e5847e;
+                    --danger-soft: #35201f;
+                    --warn-soft: #34281a;
+                    --warn-ink: #e0b96a;
+                    --good-soft: #16302a;
+                    --good-ink: #3fb3a4;
+                    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 16px rgba(0,0,0,0.35);
+                }
+            }
+            * { box-sizing: border-box; }
+            body {
+                margin: 0;
+                background: var(--bg);
+                color: var(--ink);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                line-height: 1.5;
+            }
+            .wrap { max-width: 640px; margin: 0 auto; padding: 48px 24px 96px; }
+            header.page-head {
+                display: flex; justify-content: space-between; align-items: baseline;
+                gap: 12px; margin-bottom: 28px; flex-wrap: wrap;
+            }
+            h1 { font-size: 1.5rem; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+            .session {
+                font-size: 0.85rem; color: var(--ink-dim);
+                display: flex; gap: 8px; align-items: center; white-space: nowrap;
+            }
+            .session a { color: var(--ink-dim); text-decoration: underline; }
+            h2.section-title {
+                font-size: 0.78rem; font-weight: 650; text-transform: uppercase;
+                letter-spacing: 0.06em; color: var(--ink-dim); margin: 32px 0 12px;
+            }
+            .card {
+                background: var(--surface); border: 1px solid var(--border);
+                border-radius: 12px; box-shadow: var(--shadow); overflow: hidden;
+            }
+            table { width: 100%; border-collapse: collapse; }
+            th {
+                text-align: left; font-size: 0.72rem; font-weight: 650; text-transform: uppercase;
+                letter-spacing: 0.05em; color: var(--ink-dim); padding: 10px 16px;
+                border-bottom: 1px solid var(--border);
+            }
+            td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.92rem; vertical-align: middle; }
+            tr:last-child td { border-bottom: none; }
+            .service-name { font-weight: 600; }
+            .key-mask { font-variant-numeric: tabular-nums; color: var(--ink-dim); letter-spacing: 0.04em; }
+            .pill {
+                display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 3px 9px;
+                border-radius: 999px;
+            }
+            .pill.good { background: var(--good-soft); color: var(--good-ink); }
+            .pill.warn { background: var(--warn-soft); color: var(--warn-ink); }
+            .empty-state { padding: 28px 16px; text-align: center; color: var(--ink-dim); font-size: 0.9rem; }
+            .btn {
+                font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+                border-radius: 7px; padding: 7px 14px; border: 1px solid transparent;
+            }
+            .btn-primary { background: var(--accent); color: var(--accent-ink); width: 100%; padding: 10px 14px; font-size: 0.92rem; }
+            .btn-danger { background: transparent; color: var(--danger); border-color: var(--danger-soft); }
+            .btn-danger:hover { background: var(--danger-soft); }
+            form.inline { margin: 0; }
+            .form-card { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+            .field { display: flex; flex-direction: column; gap: 6px; }
+            .field label { font-size: 0.82rem; font-weight: 600; }
+            .field .hint { font-size: 0.78rem; color: var(--ink-dim); font-weight: 400; }
+            input, select {
+                font: inherit; font-size: 0.92rem; padding: 9px 11px; border-radius: 7px;
+                border: 1px solid var(--border); background: var(--bg); color: var(--ink);
+            }
+            input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+            .alert {
+                background: var(--danger-soft); color: var(--danger); border-radius: 9px;
+                padding: 12px 16px; font-size: 0.88rem; margin-bottom: 20px; border: 1px solid var(--danger-soft);
+            }
+        """
+
+        def _page_shell(title: str, body: str) -> str:
+            return (
+                f"<html><head><title>{title}</title>"
+                f'<meta name="viewport" content="width=device-width, initial-scale=1" />'
+                f"<style>{VAULT_PAGE_STYLE}</style></head>"
+                f"<body><div class='wrap'>{body}</div></body></html>"
+            )
+
+        def _notice_page(title: str, message: str) -> str:
+            return _page_shell(title, f"""
+                <header class="page-head"><h1>{title}</h1></header>
+                <div class="card" style="padding:20px;">
+                    <p style="margin:0;">{message}</p>
+                </div>
+            """)
 
         def _vault_page(user_id: str, keys, error: str = "") -> str:
-            rows = "".join(
-                f"<tr><td>{k['service']}</td><td>****{k['last4']}</td>"
-                f"<td>{k.get('last_validated_at') or '—'}</td>"
-                f"<td><form method='post' action='/vault/keys/{k['service']}/delete' style='display:inline'>"
-                f"<button type='submit'>Delete</button></form></td></tr>"
-                for k in keys
+            import html as html_mod
+
+            def esc(v):
+                return html_mod.escape(str(v))
+
+            def _row(k):
+                label = esc(VAULT_SERVICE_LABELS.get(k["service"], k["service"]))
+                status_pill = (
+                    "<span class='pill good'>Validated</span>"
+                    if k.get("last_validated_at")
+                    else "<span class='pill warn'>Unvalidated</span>"
+                )
+                confirm_js = f"return confirm('Remove the {label} key?');"
+                return (
+                    "<tr>"
+                    f"<td class='service-name'>{label}</td>"
+                    f"<td class='key-mask'>&bull;&bull;&bull;&bull; {esc(k['last4'])}</td>"
+                    f"<td>{status_pill}</td>"
+                    "<td style='text-align:right'>"
+                    f"<form class='inline' method='post' action='/vault/keys/{esc(k['service'])}/delete' "
+                    f"onsubmit=\"{confirm_js}\">"
+                    "<button type='submit' class='btn btn-danger'>Remove</button></form></td></tr>"
+                )
+
+            rows = "".join(_row(k) for k in keys)
+            table_body = rows or (
+                "<tr><td colspan='4' class='empty-state'>"
+                "No services connected yet — add one below.</td></tr>"
             )
-            error_html = f"<p style='color:#b91c1c'>{error}</p>" if error else ""
-            options = "".join(f"<option value='{s}'>{s}</option>" for s in VAULT_SERVICES)
-            return f"""
-            <html><head><title>Mitra Key Vault</title>
-            <style>
-                body {{ font-family: -apple-system, sans-serif; max-width: 640px; margin: 3rem auto; }}
-                table {{ width: 100%; border-collapse: collapse; margin: 1rem 0; }}
-                td, th {{ border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }}
-                input, select {{ padding: 6px; margin: 4px 0; width: 100%; box-sizing: border-box; }}
-            </style></head>
-            <body>
-                <h2>Mitra key vault</h2>
-                <p>Signed in as {user_id} — <a href="/vault/logout">sign out</a></p>
+            error_html = f"<div class='alert'>{esc(error)}</div>" if error else ""
+            options = "".join(
+                f"<option value='{s}'>{esc(VAULT_SERVICE_LABELS[s])}</option>" for s in VAULT_SERVICES
+            )
+
+            body = f"""
+                <header class="page-head">
+                    <h1>Mitra key vault</h1>
+                    <div class="session">{esc(user_id)} &middot; <a href="/vault/logout">Sign out</a></div>
+                </header>
+
                 {error_html}
-                <table>
-                    <tr><th>Service</th><th>Key</th><th>Last validated</th><th></th></tr>
-                    {rows or '<tr><td colspan="4">No keys connected yet.</td></tr>'}
-                </table>
-                <h3>Add a key</h3>
-                <form method="post" action="/vault/keys">
-                    <label>Service</label>
-                    <select name="service">{options}</select>
-                    <label>API key / PAT</label>
-                    <input name="secret" type="password" required />
-                    <label>Organization URL (Azure DevOps only)</label>
-                    <input name="organization_url" placeholder="https://dev.azure.com/your-org" />
-                    <button type="submit">Save</button>
+
+                <h2 class="section-title">Connected services</h2>
+                <div class="card">
+                    <table>
+                        <thead><tr><th>Service</th><th>Key</th><th>Status</th><th></th></tr></thead>
+                        <tbody>{table_body}</tbody>
+                    </table>
+                </div>
+
+                <h2 class="section-title">Add a service</h2>
+                <form class="card form-card" method="post" action="/vault/keys">
+                    <div class="field">
+                        <label for="service">Service</label>
+                        <select id="service" name="service">{options}</select>
+                    </div>
+                    <div class="field">
+                        <label for="secret">API key / personal access token</label>
+                        <input id="secret" name="secret" type="password" required autocomplete="off" />
+                        <span class="hint">Checked against the provider before saving — nothing bad gets stored.</span>
+                    </div>
+                    <div class="field">
+                        <label for="organization_url">Organization URL</label>
+                        <input id="organization_url" name="organization_url" placeholder="https://dev.azure.com/your-org" />
+                        <span class="hint">Only required for Azure DevOps.</span>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save key</button>
                 </form>
-            </body></html>
             """
+            return _page_shell("Mitra Key Vault", body)
 
         @app.get("/vault/login")
         async def vault_login():
@@ -323,8 +480,10 @@ def start(transport, host, port):
             web_redirect_uri = os.environ.get("GOOGLE_WEB_REDIRECT_URI")
             if not client_id or not web_redirect_uri:
                 return HTMLResponse(
-                    "<h3>Configuration Error</h3>"
-                    "<p>GOOGLE_CLIENT_ID and GOOGLE_WEB_REDIRECT_URI must be configured.</p>",
+                    _notice_page(
+                        "Configuration error",
+                        "GOOGLE_CLIENT_ID and GOOGLE_WEB_REDIRECT_URI must be configured on the server.",
+                    ),
                     status_code=500,
                 )
             import secrets as secrets_mod
@@ -346,7 +505,10 @@ def start(transport, host, port):
         async def vault_callback(request: Request, code: str, state: str):
             cookie_state = request.cookies.get("mitra_oauth_state")
             if not cookie_state or cookie_state != state:
-                return HTMLResponse("<h3>Error: invalid or expired state.</h3>", status_code=400)
+                return HTMLResponse(
+                    _notice_page("Sign-in failed", "Invalid or expired sign-in state. Please try again."),
+                    status_code=400,
+                )
 
             client_id = os.environ.get("GOOGLE_CLIENT_ID")
             client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
@@ -363,17 +525,26 @@ def start(transport, host, port):
             async with httpx.AsyncClient() as client:
                 resp = await client.post("https://oauth2.googleapis.com/token", data=payload, timeout=10.0)
             if resp.status_code != 200:
-                return HTMLResponse(f"<h3>Sign-in failed</h3><pre>{resp.text}</pre>", status_code=400)
+                return HTMLResponse(
+                    _notice_page("Sign-in failed", "Google rejected the sign-in request. Please try again."),
+                    status_code=400,
+                )
 
             data = resp.json()
             id_token = data.get("id_token")
             if not id_token:
-                return HTMLResponse("<h3>Sign-in failed</h3><p>Google did not return an ID token.</p>", status_code=400)
+                return HTMLResponse(
+                    _notice_page("Sign-in failed", "Google did not return an ID token."),
+                    status_code=400,
+                )
 
             try:
                 claims = token_auth.validate_bearer_token(id_token)
-            except token_auth.TokenValidationError as exc:
-                return HTMLResponse(f"<h3>Sign-in failed</h3><p>{exc}</p>", status_code=400)
+            except token_auth.TokenValidationError:
+                return HTMLResponse(
+                    _notice_page("Sign-in failed", "Your Google sign-in could not be verified. Please try again."),
+                    status_code=400,
+                )
 
             user_id = claims.get("email") or claims["sub"]
             response = RedirectResponse("/vault", status_code=307)
