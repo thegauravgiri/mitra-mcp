@@ -432,7 +432,11 @@ def start(transport, host, port):
         elif hasattr(mcp, "streamable_http_app"):
             app.mount("/", mcp.streamable_http_app())
 
-        uvicorn.run(app, host=host, port=port)
+        # Cloud Run terminates TLS at its edge and forwards plain HTTP with an
+        # X-Forwarded-Proto header; without proxy_headers, request.base_url (used
+        # throughout the OAuth metadata/authorize/callback URLs above) resolves as
+        # http:// instead of https://, which Google's redirect_uri validation rejects.
+        uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="*")
 
 if __name__ == "__main__":
     cli()
