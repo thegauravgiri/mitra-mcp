@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from mitra.core import token_auth, vault_validators
+from mitra.core.oauth_service import get_credential_service
 from mitra.core.vault_service import get_vault_service
 from mitra.webapp import session as session_utils
 from mitra.webapp.service_config import SERVICES
@@ -38,6 +39,9 @@ def _notice(request: Request, title: str, message: str, status_code: int = 200) 
 async def _vault_response(request: Request, user_id: str, error: Optional[str] = None, status_code: int = 200):
     keys = await get_vault_service().list_keys(user_id)
     keys_by_service = {k["service"]: k for k in keys}
+
+    calendar_cred = await get_credential_service().store.get_credential(user_id, "google")
+
     return templates.TemplateResponse(
         request,
         "vault.html",
@@ -47,6 +51,9 @@ async def _vault_response(request: Request, user_id: str, error: Optional[str] =
             "services": list(SERVICES.values()),
             "keys_by_service": keys_by_service,
             "error": error,
+            "calendar_connected": calendar_cred is not None,
+            "calendar_connected_at": (calendar_cred or {}).get("updated_at"),
+            "calendar_connect_url": "/auth/google/start?user_id=" + urllib.parse.quote(user_id),
         },
         status_code=status_code,
     )
@@ -205,4 +212,13 @@ async def vault_delete_key(request: Request, service: str):
     if not user_id:
         return RedirectResponse("/vault/login")
     await get_vault_service().delete_key(user_id, service)
+    return RedirectResponse("/vault", status_code=303)
+
+
+@router.post("/vault/calendar/disconnect")
+async def vault_disconnect_calendar(request: Request):
+    user_id = _require_session(request)
+    if not user_id:
+        return RedirectResponse("/vault/login")
+    await get_credential_service().store.delete_credential(user_id, "google")
     return RedirectResponse("/vault", status_code=303)

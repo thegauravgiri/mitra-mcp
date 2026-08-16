@@ -3,6 +3,34 @@
 
 {% if error %}<div class="alert">{{ error }}</div>{% endif %}
 
+<h2 class="section-title">Google Calendar</h2>
+<div class="card">
+  <table>
+    <tbody>
+      <tr>
+        <td class="service-name">Google Calendar</td>
+        <td>
+          {% if calendar_connected %}
+            <span class="pill good">Connected</span>
+          {% else %}
+            <span class="pill warn">Not connected</span>
+          {% endif %}
+        </td>
+        <td class="col-actions">
+          {% if calendar_connected %}
+            <form class="inline" method="post" action="/vault/calendar/disconnect"
+                  data-confirm="Disconnect Google Calendar? Calendar tools will stop working until you reconnect.">
+              <button type="submit" class="btn btn-danger">Disconnect</button>
+            </form>
+          {% else %}
+            <a class="btn btn-primary btn-inline" href="{{ calendar_connect_url }}">Connect</a>
+          {% endif %}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
 <h2 class="section-title">Connected services</h2>
 <div class="card">
   <table>

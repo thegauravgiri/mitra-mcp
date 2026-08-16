@@ -101,10 +101,26 @@ def start(transport, host, port):
         # ── Generic OAuth Endpoints ──────────────────────────────────────────────────
 
         @app.get("/auth/{provider}/start")
-        async def oauth_start(provider: str, user_id: str):
+        async def oauth_start(request: Request, provider: str, user_id: str = None):
             provider_key = provider.lower()
             if provider_key != "google":
                 return HTMLResponse(f"<h3>Unsupported provider: {provider}</h3>", status_code=400)
+
+            # If the caller has a signed-in vault session, that identity always wins over
+            # the query param — otherwise anyone could complete this flow for an arbitrary
+            # user_id and have their own Google grant filed under someone else's identity.
+            from mitra.webapp import session as vault_session
+            session_cookie = request.cookies.get("mitra_session")
+            session_user_id = vault_session.unsign(session_cookie) if session_cookie else None
+            effective_user_id = session_user_id or user_id
+
+            if not effective_user_id:
+                return HTMLResponse(
+                    "<h3>Sign in required</h3>"
+                    "<p>Sign in at <a href='/vault/login'>/vault/login</a> first, "
+                    "or provide a 'user_id' parameter.</p>",
+                    status_code=400,
+                )
 
             client_id = os.environ.get("GOOGLE_CLIENT_ID")
             redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI")
@@ -120,7 +136,7 @@ def start(transport, host, port):
             scopes = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events"
 
             import base64
-            state = base64.urlsafe_b64encode(user_id.encode()).decode()
+            state = base64.urlsafe_b64encode(effective_user_id.encode()).decode()
 
             auth_url = (
                 f"https://accounts.google.com/o/oauth2/v2/auth?"

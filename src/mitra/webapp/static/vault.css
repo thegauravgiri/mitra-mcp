@@ -94,8 +94,12 @@ tr:last-child td { border-bottom: none; }
 
 .empty-state { padding: 28px 16px; text-align: center; color: var(--ink-dim); font-size: 0.9rem; }
 
-.btn { font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; border-radius: 7px; padding: 7px 14px; border: 1px solid transparent; }
+.btn {
+    font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; border-radius: 7px;
+    padding: 7px 14px; border: 1px solid transparent; display: inline-block; text-decoration: none;
+}
 .btn-primary { background: var(--accent); color: var(--accent-ink); width: 100%; padding: 10px 14px; font-size: 0.92rem; }
+.btn-primary.btn-inline { width: auto; padding: 6px 12px; font-size: 0.85rem; }
 .btn-danger { background: transparent; color: var(--danger); border-color: var(--danger-soft); }
 .btn-danger:hover { background: var(--danger-soft); }
 
