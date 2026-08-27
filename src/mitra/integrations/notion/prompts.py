@@ -11,9 +11,7 @@ import httpx
 logger = logging.getLogger("mitra.integrations.notion.prompts")
 
 NOTION_SKILL_URL = (
-    "https://gist.githubusercontent.com/thegauravgiri/"
-    "a25f9a0429e09c4a713eef9298507976/raw/"
-    "5a479a3f895bc9ae71ce6e5fc5f44a5b94bb89c7/MyNotionDashboardSkill.md"
+    'https://gist.githubusercontent.com/thegauravgiri/a25f9a0429e09c4a713eef9298507976/raw/MyNotionDashboardSkill.md'
 )
 
 NOTION_SKILL_UNAVAILABLE = """# Notion Dashboard Skill (unavailable)
