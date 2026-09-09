@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 import httpx
 
 from mitra.integrations.azure_devops.client import AzureDevOpsClient
+from mitra.integrations.jira.client import JiraClient
 
 
 class ValidationError(Exception):
@@ -42,10 +43,26 @@ async def validate_azure_devops(secret: str, metadata: Optional[Dict[str, Any]] 
         raise ValidationError("Azure DevOps rejected this PAT or organization URL.")
 
 
+async def validate_jira(secret: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    email = (metadata or {}).get("email")
+    site_url = (metadata or {}).get("site_url")
+    if not email:
+        raise ValidationError("A Jira account email is required.")
+    if not site_url:
+        raise ValidationError("A Jira site URL is required.")
+    try:
+        # Reuse the same client the production tools already call, rather than
+        # a hand-rolled request, against the known-good /myself endpoint.
+        await JiraClient(email, secret, site_url).get_current_user()
+    except Exception:
+        raise ValidationError("Jira rejected this API token, email, or site URL.")
+
+
 VALIDATORS = {
     "clockify": validate_clockify,
     "wakatime": validate_wakatime,
     "azure_devops": validate_azure_devops,
+    "jira": validate_jira,
 }
 
 
