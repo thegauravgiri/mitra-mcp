@@ -18,6 +18,9 @@ Before you connect, gather the following credentials. You will enter them into y
 | **WakaTime API Key** | [WakaTime → Settings → API Key](https://wakatime.com/settings/api-key) |
 | **Azure DevOps PAT** | Azure DevOps → User Settings → Personal Access Tokens (needs `Work Items Read & Write`, `Project and Team Read` scopes) |
 | **Azure DevOps Org URL** | Your organization URL, e.g. `https://dev.azure.com/your-organization` |
+| **Jira API Token** | [Atlassian → Account Settings → Security → API tokens](https://id.atlassian.com/manage-profile/security/api-tokens) |
+| **Jira Account Email** | The email address associated with your Atlassian account |
+| **Jira Site URL** | Your Jira site URL, e.g. `https://your-domain.atlassian.net` |
 | **User ID** *(optional)* | Your email address, used to identify your Google Calendar account. If omitted, defaults to the email retrieved from your Clockify profile. |
 
 You will also need the **Mitra server URL** from your administrator (e.g. `https://mitra.example.com`).
@@ -49,6 +52,9 @@ Add the following inside the top-level JSON object:
           "x-wakatime-api-key": "YOUR_WAKATIME_API_KEY",
           "x-azure-devops-pat": "YOUR_AZURE_DEVOPS_PAT",
           "x-azure-devops-org": "https://dev.azure.com/YOUR_ORGANIZATION",
+          "x-jira-email": "your.email@example.com",
+          "x-jira-api-token": "YOUR_JIRA_API_TOKEN",
+          "x-jira-url": "https://YOUR_DOMAIN.atlassian.net",
           "x-user-id": "your.email@example.com"
         }
       }
@@ -73,6 +79,9 @@ Create a `.vscode/mcp.json` file at the root of your project:
         "x-wakatime-api-key": "YOUR_WAKATIME_API_KEY",
         "x-azure-devops-pat": "YOUR_AZURE_DEVOPS_PAT",
         "x-azure-devops-org": "https://dev.azure.com/YOUR_ORGANIZATION",
+        "x-jira-email": "your.email@example.com",
+        "x-jira-api-token": "YOUR_JIRA_API_TOKEN",
+        "x-jira-url": "https://YOUR_DOMAIN.atlassian.net",
         "x-user-id": "your.email@example.com"
       }
     }
@@ -113,6 +122,9 @@ Add Mitra as a remote MCP server:
         "x-wakatime-api-key": "YOUR_WAKATIME_API_KEY",
         "x-azure-devops-pat": "YOUR_AZURE_DEVOPS_PAT",
         "x-azure-devops-org": "https://dev.azure.com/YOUR_ORGANIZATION",
+        "x-jira-email": "your.email@example.com",
+        "x-jira-api-token": "YOUR_JIRA_API_TOKEN",
+        "x-jira-url": "https://YOUR_DOMAIN.atlassian.net",
         "x-user-id": "your.email@example.com"
       }
     }
@@ -138,6 +150,9 @@ claude mcp add mitra \
   --header "x-wakatime-api-key: YOUR_WAKATIME_API_KEY" \
   --header "x-azure-devops-pat: YOUR_AZURE_DEVOPS_PAT" \
   --header "x-azure-devops-org: https://dev.azure.com/YOUR_ORGANIZATION" \
+  --header "x-jira-email: your.email@example.com" \
+  --header "x-jira-api-token: YOUR_JIRA_API_TOKEN" \
+  --header "x-jira-url: https://YOUR_DOMAIN.atlassian.net" \
   --header "x-user-id: your.email@example.com" \
   --url https://mitra.example.com/sse
 ```
@@ -173,6 +188,9 @@ Create or edit `~/.codex/config.json` (or the project-level `.codex/config.json`
         "x-wakatime-api-key": "YOUR_WAKATIME_API_KEY",
         "x-azure-devops-pat": "YOUR_AZURE_DEVOPS_PAT",
         "x-azure-devops-org": "https://dev.azure.com/YOUR_ORGANIZATION",
+        "x-jira-email": "your.email@example.com",
+        "x-jira-api-token": "YOUR_JIRA_API_TOKEN",
+        "x-jira-url": "https://YOUR_DOMAIN.atlassian.net",
         "x-user-id": "your.email@example.com"
       }
     }
@@ -211,6 +229,9 @@ Every request to the remote Mitra server carries your credentials as HTTP header
 | `x-wakatime-api-key` | Yes | WakaTime API Key |
 | `x-azure-devops-pat` | Yes | Azure DevOps Personal Access Token |
 | `x-azure-devops-org` | Yes | Azure DevOps Organization URL |
+| `x-jira-email` | Yes | Atlassian account email |
+| `x-jira-api-token` | Yes | Jira API Token |
+| `x-jira-url` | Yes | Jira Site URL |
 | `x-user-id` | No | Your email (for Google Calendar identity; defaults to Clockify email) |
 
 ---

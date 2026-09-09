@@ -189,6 +189,8 @@ async def vault_add_key(
     secret: str = Form(...),
     organization_url: str = Form(""),
     workspace_id: str = Form(""),
+    email: str = Form(""),
+    site_url: str = Form(""),
 ):
     user_id = _require_session(request)
     if not user_id:
@@ -203,6 +205,10 @@ async def vault_add_key(
         metadata["organization_url"] = organization_url
     if workspace_id:
         metadata["workspace_id"] = workspace_id
+    if email:
+        metadata["email"] = email
+    if site_url:
+        metadata["site_url"] = site_url
 
     missing_required = [f.label for f in cfg.extra_fields if f.required and not metadata.get(f.name)]
     if missing_required:

@@ -1,6 +1,6 @@
 # Mitra MCP Server
 
-Mitra is a modular, stateless Model Context Protocol (MCP) server that integrates Clockify, WakaTime, and Azure DevOps. It enables developers and local AI assistants to fetch active projects, manage Azure DevOps work items (cards), and log time entries directly to Clockify using a unified workflow.
+Mitra is a modular, stateless Model Context Protocol (MCP) server that integrates Clockify, WakaTime, Azure DevOps, and Jira. It enables developers and local AI assistants to fetch active projects, manage Azure DevOps work items (cards) and Jira issues, and log time entries directly to Clockify using a unified workflow.
 
 The server is fully **stateless**: individual team members supply their credentials (API keys, workspace IDs, Personal Access Tokens) via request headers (in remote/SSE mode) or local environment variables (in stdio mode).
 
@@ -44,6 +44,13 @@ src/mitra/
     │   ├── prompts.py
     │   └── context.py
     │
+    ├── jira/                  # Jira issues
+    │   ├── __init__.py
+    │   ├── client.py
+    │   ├── tools.py
+    │   ├── prompts.py
+    │   └── context.py
+    │
     └── workflows/             # Cross-integration composite tools
         ├── __init__.py
         ├── linkage.py         # Clockify ↔ Azure DevOps linkage
@@ -53,16 +60,16 @@ src/mitra/
 
 ### Adding a New Integration (Developer Guide)
 
-Adding a new integration (for example, `Jira` or `Github`) requires creating **one folder** — no other files need to be modified:
+Adding a new integration (for example, `Github` or `Trello`) requires creating **one folder** — no other files need to be modified:
 
 ```bash
-mkdir -p src/mitra/integrations/jira
+mkdir -p src/mitra/integrations/trello
 ```
 
 **1. Create the entry point** (`__init__.py`):
 ```python
-# src/mitra/integrations/jira/__init__.py
-from mitra.integrations.jira.tools import register_tools
+# src/mitra/integrations/trello/__init__.py
+from mitra.integrations.trello.tools import register_tools
 
 def register(mcp):
     register_tools(mcp)
@@ -70,34 +77,34 @@ def register(mcp):
 
 **2. Create the API client** (`client.py`):
 ```python
-# src/mitra/integrations/jira/client.py
-class JiraClient:
+# src/mitra/integrations/trello/client.py
+class TrelloClient:
     def __init__(self, api_key: str): ...
-    async def list_issues(self, project: str): ...
+    async def list_cards(self, board: str): ...
 ```
 
 **3. Create the tools** (`tools.py`):
 ```python
-# src/mitra/integrations/jira/tools.py
-from mitra.integrations.jira.client import JiraClient
+# src/mitra/integrations/trello/tools.py
+from mitra.integrations.trello.client import TrelloClient
 
 def register_tools(mcp):
     @mcp.tool()
-    async def jira_list_issues(project: str, api_key: str) -> list:
-        """Lists Jira issues for a project."""
-        client = JiraClient(api_key)
-        return await client.list_issues(project)
+    async def trello_list_cards(board: str, api_key: str) -> list:
+        """Lists Trello cards for a board."""
+        client = TrelloClient(api_key)
+        return await client.list_cards(board)
 ```
 
 **4. (Optional) Add credential headers** (`context.py`):
 ```python
-# src/mitra/integrations/jira/context.py
+# src/mitra/integrations/trello/context.py
 import contextvars
 from mitra.core.context import resolve_credential
 
-request_jira_api_key = contextvars.ContextVar("jira_api_key", default=None)
+request_trello_api_key = contextvars.ContextVar("trello_api_key", default=None)
 
-HEADERS = {"x-jira-api-key": request_jira_api_key}
+HEADERS = {"x-trello-api-key": request_trello_api_key}
 
 def get_jira_api_key():
     return resolve_credential(request_jira_api_key, "JIRA_API_KEY")
@@ -129,6 +136,9 @@ export CLOCKIFY_WORKSPACE_ID="your-clockify-workspace-id"
 export WAKATIME_API_KEY="your-wakatime-api-key"
 export AZURE_DEVOPS_PAT="your-azure-devops-pat"
 export AZURE_DEVOPS_ORG="https://dev.azure.com/your-org"
+export JIRA_EMAIL="your-atlassian-account-email"
+export JIRA_API_TOKEN="your-jira-api-token"
+export JIRA_URL="https://your-domain.atlassian.net"
 ```
 
 Start the server:
@@ -160,7 +170,10 @@ Add the following JSON snippet under the `mcpServers` key:
         "CLOCKIFY_WORKSPACE_ID": "your-clockify-workspace-id",
         "WAKATIME_API_KEY": "your-wakatime-api-key",
         "AZURE_DEVOPS_PAT": "your-azure-devops-pat",
-        "AZURE_DEVOPS_ORG": "https://dev.azure.com/your-org"
+        "AZURE_DEVOPS_ORG": "https://dev.azure.com/your-org",
+        "JIRA_EMAIL": "your-atlassian-account-email",
+        "JIRA_API_TOKEN": "your-jira-api-token",
+        "JIRA_URL": "https://your-domain.atlassian.net"
       }
     }
   }
@@ -184,6 +197,9 @@ claude mcp add mitra --scope user \
   -e WAKATIME_API_KEY="your-wakatime-api-key" \
   -e AZURE_DEVOPS_PAT="your-azure-devops-pat" \
   -e AZURE_DEVOPS_ORG="https://dev.azure.com/your-org" \
+  -e JIRA_EMAIL="your-atlassian-account-email" \
+  -e JIRA_API_TOKEN="your-jira-api-token" \
+  -e JIRA_URL="https://your-domain.atlassian.net" \
   -- /absolute/path/to/your/venv/bin/mitra start --transport stdio
 ```
 
@@ -198,6 +214,9 @@ In remote mode, the server is hosted as an HTTP app. Clients supply credentials 
 - `X-Wakatime-Api-Key`
 - `X-Azure-Devops-Pat`
 - `X-Azure-Devops-Org`
+- `X-Jira-Email`
+- `X-Jira-Api-Token`
+- `X-Jira-Url`
 
 Start the server:
 ```bash

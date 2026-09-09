@@ -66,4 +66,26 @@ SERVICES: Dict[str, ServiceConfig] = {
             ),
         ],
     ),
+    "jira": ServiceConfig(
+        key="jira",
+        label="Jira",
+        secret_label="API token",
+        secret_header="x-jira-api-token",
+        extra_fields=[
+            ExtraField(
+                name="email",
+                label="Atlassian account email",
+                header="x-jira-email",
+                placeholder="you@example.com",
+                required=True,
+            ),
+            ExtraField(
+                name="site_url",
+                label="Site URL",
+                header="x-jira-url",
+                placeholder="https://your-domain.atlassian.net",
+                required=True,
+            ),
+        ],
+    ),
 }
